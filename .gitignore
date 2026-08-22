@@ -1,0 +1,18 @@
+.env
+
+# Clés et certificats — jamais versionnés.
+infra/keys/*.pem
+infra/proxy/certs/*.pem
+
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# Illustrations sources haute résolution — les versions web sont dans app/cybertinix/web/
+src/
+
+# Configuration locale de Claude Code
+.claude/

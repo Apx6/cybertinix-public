@@ -1,0 +1,151 @@
+name: teslaaddict
+
+services:
+  # ---------------------------------------------------------------------------
+  # Routage TCP par SNI sur le 443.
+  #
+  # fleet-telemetry doit terminer le mTLS lui-même : impossible de mettre un
+  # reverse proxy qui déchiffre devant. nginx fait donc du passthrough en mode
+  # stream, en aiguillant sur le nom SNI :
+  #   telemetry.<domaine>  -> fleet-telemetry (le véhicule)
+  #   tout le reste        -> serveur HTTPS interne (.well-known, OAuth, API)
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/keys/public-key.pem:/srv/well-known/com.tesla.3p.public-key.pem:ro
+      - certbot-conf:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot
+    depends_on:
+      - app
+    networks: [teslaaddict]
+
+  # Renouvellement des certificats Let's Encrypt (challenge HTTP-01 via nginx).
+  # L'émission initiale se fait avec scripts/02-bootstrap-certs.sh.
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    entrypoint: /bin/sh
+    command: -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    networks: [teslaaddict]
+
+  # ---------------------------------------------------------------------------
+  # Serveur Fleet Telemetry (Tesla, Go). Le véhicule s'y connecte en websocket
+  # mTLS et pousse les signaux. Republie chaque champ sur MQTT.
+  # ---------------------------------------------------------------------------
+  fleet-telemetry:
+    image: tesla/fleet-telemetry:v0.9.4
+    restart: unless-stopped
+    # L'image tourne en UID 65532, or Let's Encrypt garde live/ et archive/ en
+    # 0700 root et la clé privée en 0600 : le conteneur ne peut pas lire son
+    # propre certificat et panique au démarrage.
+    #
+    # L'alternative — rendre la clé privée lisible par 65532 — affaiblirait le
+    # fichier le plus sensible de l'installation. On préfère élever le
+    # conteneur, qui reste non privilégié et ne monte que ces certificats en
+    # lecture seule.
+    user: "0:0"
+    # Pas de `command:` ici : l'image n'a pas d'ENTRYPOINT, son CMD par défaut
+    # est déjà `/fleet-telemetry -config /etc/fleet-telemetry/config.json`.
+    # Le surcharger avec les seuls flags perdrait le chemin du binaire.
+    volumes:
+      - ./infra/fleet-telemetry/config.json:/etc/fleet-telemetry/config.json:ro
+      - certbot-conf:/etc/letsencrypt:ro
+    # fleet-telemetry panique et s'arrête si le broker n'est pas joignable au
+    # démarrage : on attend qu'il soit réellement prêt, pas seulement lancé.
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks: [teslaaddict]
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "healthcheck", "-m", "ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [teslaaddict]
+
+  # ---------------------------------------------------------------------------
+  # Proxy de commandes signées (Tesla, Go). Expose les mêmes routes que la
+  # Fleet API, signe chaque commande avec la clé privée, puis forwarde.
+  # Jamais exposé publiquement : seul `app` lui parle, sur le réseau interne.
+  # ---------------------------------------------------------------------------
+  tesla-http-proxy:
+    build: ./infra/proxy
+    restart: unless-stopped
+    command:
+      - "-host=0.0.0.0"
+      - "-port=4443"
+      - "-cert=/certs/proxy-cert.pem"
+      - "-tls-key=/certs/proxy-key.pem"
+      - "-key-file=/keys/private-key.pem"
+      - "-verbose"
+    volumes:
+      - ./infra/proxy/certs:/certs:ro
+      - ./infra/keys:/keys:ro
+    networks: [teslaaddict]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: teslaaddict
+      POSTGRES_USER: teslaaddict
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teslaaddict"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [teslaaddict]
+
+  # ---------------------------------------------------------------------------
+  # Le seul service qu'on écrit : OAuth, ingestion MQTT, règles, notifications.
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: ./app
+      args:
+        BUILD_ID: ${BUILD_ID:-dev}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://teslaaddict:${POSTGRES_PASSWORD}@postgres:5432/teslaaddict
+      MQTT_BROKER_HOST: mosquitto
+      PROXY_BASE_URL: https://tesla-http-proxy:4443
+    volumes:
+      - ./infra/proxy/certs/proxy-cert.pem:/certs/proxy-cert.pem:ro
+      # La chaîne de certification part dans la configuration de télémétrie :
+      # c'est elle que le véhicule utilise pour valider notre serveur.
+      - certbot-conf:/etc/letsencrypt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    networks: [teslaaddict]
+
+volumes:
+  postgres-data:
+  mosquitto-data:
+  certbot-conf:
+  certbot-www:
+
+networks:
+  teslaaddict:

@@ -1,0 +1,24 @@
+[project]
+name = "cybertinix"
+version = "0.1.0"
+description = "Suivi, alertes et automatisations pour Tesla via la Fleet API"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.27",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "aiomqtt>=2.3",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    # Lecture de la date d'expiration du certificat Let's Encrypt.
+    "cryptography>=43.0",
+    # Lecture du formulaire de connexion.
+    "python-multipart>=0.0.12",
+    # L'image slim n'embarque pas la base de fuseaux horaires.
+    "tzdata>=2024.2",
+]
+
+[tool.ruff]
+line-length = 100

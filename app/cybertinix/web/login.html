@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1210">
+<title>Connexion</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔋</text></svg>">
+<style>
+:root{--ground:#0d1210;--surface:#151d19;--surface-2:#1d2723;--line:#26332d;--ink:#e6ede9;
+  --muted:#7d8f87;--accent:#4fc38f;--accent-soft:#163025;--danger:#e2725f;--danger-soft:#2e1c18}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--ground:#f2f5f3;--surface:#fff;
+  --surface-2:#e9efeb;--line:#d8e2dc;--ink:#14201b;--muted:#6d7f76;--accent:#0d7a55;--accent-soft:#dcefe6;
+  --danger:#a63a26;--danger-soft:#fae7e2}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--ground);color:var(--ink);
+  font:16px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif;padding:1rem}
+form{width:min(22rem,100%);background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:1.5rem;display:flex;flex-direction:column;gap:.9rem}
+h1{margin:0;font-size:1.15rem;font-weight:600}
+p{margin:0;color:var(--muted);font-size:.85rem}
+label{display:flex;flex-direction:column;gap:.3rem;font-size:.8rem;color:var(--muted)}
+input{background:var(--surface-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;
+  padding:.6rem .7rem;font:inherit;font-size:1rem}
+input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{background:var(--accent);color:#0d1210;border:0;border-radius:8px;padding:.7rem;font:inherit;
+  font-weight:600;cursor:pointer}
+.err{background:var(--danger-soft);border-left:3px solid var(--danger);padding:.5rem .7rem;
+  border-radius:6px;font-size:.85rem}
+</style>
+</head>
+<body>
+<form method="post" action="/login" autocomplete="on">
+  <h1>🔋 {{NOM}}</h1>
+  <p>Saisis le jeton d'accès. Ton gestionnaire de mots de passe proposera de le retenir.</p>
+  {{ERREUR}}
+  <!-- Un identifiant fixe et visible : sans lui, iOS ne propose pas
+       d'enregistrer le mot de passe. -->
+  <label>Identifiant
+    <input name="username" value="{{UTILISATEUR}}" autocomplete="username" readonly>
+  </label>
+  <label>Jeton d'accès
+    <input name="password" type="password" autocomplete="current-password" required autofocus>
+  </label>
+  <button type="submit">Se connecter</button>
+</form>
+</body>
+</html>

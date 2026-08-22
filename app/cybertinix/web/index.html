@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1210">
+<title>CyberTinix</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔋</text></svg>">
+<style>
+:root {
+  --ground:#0d1210; --surface:#151d19; --surface-2:#1d2723; --line:#26332d;
+  --ink:#e6ede9; --ink-soft:#a8b8b0; --muted:#7d8f87;
+  --accent:#4fc38f; --accent-soft:#163025;
+  --warn:#e0a05c; --warn-soft:#2b2118; --danger:#e2725f; --danger-soft:#2e1c18;
+  --nuit:#1c2b4a; --nuit-clair:#2c4270; --nuit-vitre:#4a6a9e;
+  --r:10px; --nav:4.4rem;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground:#f2f5f3; --surface:#ffffff; --surface-2:#e9efeb; --line:#d8e2dc;
+    --ink:#14201b; --ink-soft:#48584f; --muted:#6d7f76;
+    --accent:#0d7a55; --accent-soft:#dcefe6;
+    --warn:#9a5518; --warn-soft:#f8ece0; --danger:#a63a26; --danger-soft:#fae7e2;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:52rem;margin:0 auto;padding:0 1rem;
+  padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom) + 1.5rem)}
+
+header{position:sticky;top:0;z-index:10;background:var(--ground);
+  display:flex;align-items:center;gap:.7rem;
+  padding:calc(env(safe-area-inset-top) + .7rem) 0 .7rem;
+  border-bottom:1px solid var(--line);margin-bottom:1rem}
+header h1{font-size:1rem;font-weight:600;margin:0;letter-spacing:-.01em;line-height:1.2}
+header .vin{font:500 .68rem ui-monospace,monospace;color:var(--muted)}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--muted);flex:none}
+.dot.on{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.dot.off{background:var(--warn)}
+header .spacer{flex:1}
+.pastille{font:600 .85rem/1 ui-sans-serif,system-ui;color:var(--accent);background:var(--accent-soft);
+  border-radius:99px;padding:.35rem .6rem;font-variant-numeric:tabular-nums}
+.pastille.low{color:var(--warn);background:var(--warn-soft)}
+button.ghost,a.ghost{background:none;border:1px solid var(--line);color:var(--ink-soft);
+  border-radius:var(--r);padding:.4rem .7rem;font:inherit;font-size:.8rem;cursor:pointer}
+button.ghost:hover{background:var(--surface-2)}
+
+nav{position:fixed;left:0;right:0;bottom:0;z-index:15;display:grid;grid-template-columns:repeat(6,1fr);
+  background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{background:none;border:0;color:var(--muted);cursor:pointer;font:inherit;
+  display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.65rem .1rem;
+  font-size:.6rem;border-top:2px solid transparent;margin-top:-1px}
+nav button em{font-style:normal;font-size:1.2rem;line-height:1}
+nav button[aria-current="true"]{color:var(--accent);border-top-color:var(--accent)}
+
+/* Illustration du véhicule */
+.vitrine{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:1rem .8rem .6rem;margin-bottom:.9rem;text-align:center}
+.voiture{position:relative;max-width:24rem;margin:0 auto;aspect-ratio:1000/545;border-radius:8px;overflow:hidden}
+.voiture img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .35s}
+.voiture img.cache{opacity:0}
+.badge{position:absolute;top:.5rem;right:.5rem;width:2rem;height:2rem;border-radius:50%;
+  display:grid;place-items:center;font-size:1rem;background:var(--accent-soft);
+  border:1.5px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.badge.ouvert{background:var(--warn-soft);border-color:var(--warn)}
+.vitrine .sous{color:var(--muted);font-size:.78rem;margin-top:.3rem}
+
+/* Tuiles */
+.tuiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.5rem;margin-bottom:.4rem}
+.tuile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:.75rem .85rem}
+.tuile .t{font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.3rem}
+.tuile .v{font-size:1.25rem;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.2}
+.tuile .s{font-size:.75rem;color:var(--ink-soft);margin-top:.15rem}
+.tuile.good .v{color:var(--accent)} .tuile.warn .v{color:var(--warn)} .tuile.bad .v{color:var(--danger)}
+.jauge{height:.35rem;border-radius:99px;background:var(--surface-2);margin-top:.5rem;overflow:hidden}
+.jauge i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s}
+.jauge i.low{background:var(--warn)}
+
+/* Carte */
+.carte{position:relative;height:11rem;border-radius:var(--r);overflow:hidden;
+  border:1px solid var(--line);background:var(--surface-2)}
+.carte .tuilesosm{position:absolute;inset:0}
+.carte img{position:absolute;width:256px;height:256px;image-rendering:auto}
+.carte .marqueur{position:absolute;left:50%;top:50%;width:1.1rem;height:1.1rem;margin:-.55rem 0 0 -.55rem;
+  border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 0 0 4px rgba(79,195,143,.3)}
+.carte .credit{position:absolute;right:.3rem;bottom:.2rem;font-size:.6rem;color:#000a;
+  background:#fff8;padding:0 .25rem;border-radius:3px}
+.carte .vide{display:grid;place-items:center;height:100%;color:var(--muted);font-size:.85rem;padding:1rem;text-align:center}
+
+h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:1.5rem 0 .6rem;font-weight:600}
+h2:first-of-type{margin-top:.2rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.row{display:flex;align-items:center;gap:.75rem;padding:.7rem .9rem;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .lab{flex:1;min-width:0}
+.row .lab small{display:block;color:var(--muted);font-size:.75rem;line-height:1.35;margin-top:.15rem}
+.val{font-variant-numeric:tabular-nums;color:var(--ink-soft);font-size:.9rem;text-align:right}
+.val.good{color:var(--accent)} .val.warn{color:var(--warn)} .val.bad{color:var(--danger)}
+a{color:var(--accent)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(7.2rem,1fr));gap:.5rem}
+.act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.35rem;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:.85rem .5rem;
+  cursor:pointer;color:var(--ink);font:inherit;font-size:.8rem;min-height:4.4rem;text-align:center;
+  transition:background .15s,border-color .15s}
+.act:hover:not(:disabled){background:var(--surface-2);border-color:var(--accent)}
+.act:disabled{opacity:.45;cursor:not-allowed}
+.act em{font-style:normal;font-size:1.3rem;line-height:1}
+.act.busy{border-color:var(--accent);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.sousgroupe{color:var(--muted);font-size:.75rem;margin:.9rem 0 .4rem}
+.sousgroupe:first-child{margin-top:0}
+
+input[type=number],input[type=time],select{background:var(--surface-2);border:1px solid var(--line);
+  color:var(--ink);border-radius:8px;padding:.4rem .5rem;font:inherit;font-size:.85rem;width:6.4rem;
+  text-align:right;font-variant-numeric:tabular-nums}
+select{width:auto;text-align:left}
+input[type=checkbox]{width:2.6rem;height:1.5rem;appearance:none;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:99px;position:relative;cursor:pointer;flex:none}
+input[type=checkbox]::after{content:"";position:absolute;top:2px;left:2px;width:1.1rem;height:1.1rem;
+  border-radius:50%;background:var(--muted);transition:.18s}
+input[type=checkbox]:checked{background:var(--accent-soft);border-color:var(--accent)}
+input[type=checkbox]:checked::after{left:1.35rem;background:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.reset{background:none;border:0;color:var(--muted);cursor:pointer;font-size:.72rem;
+  text-decoration:underline;padding:0 0 0 .5rem;font-family:inherit}
+
+#flash{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(var(--nav) + env(safe-area-inset-bottom) + .8rem);z-index:20;
+  max-width:min(30rem,92vw);display:flex;flex-direction:column;gap:.4rem;align-items:center}
+.msg{background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:8px;padding:.6rem .8rem;font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.msg.err{border-left-color:var(--danger);background:var(--danger-soft)}
+.msg.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+#maj{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + .6rem);z-index:30;
+  display:flex;align-items:center;gap:.8rem;background:var(--accent-soft);border:1px solid var(--accent);
+  color:var(--ink);border-radius:99px;padding:.45rem .5rem .45rem 1rem;font-size:.85rem;
+  box-shadow:0 8px 24px rgba(0,0,0,.35)}
+#maj button{background:var(--accent);color:#0d1210;border:0;border-radius:99px;padding:.4rem .8rem;
+  font:inherit;font-size:.8rem;font-weight:600;cursor:pointer}
+footer{color:var(--muted);font-size:.75rem;text-align:center;padding:1.5rem 0 0;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="dot" id="dot"></span>
+    <div><h1 id="nom">CyberTinix</h1><span class="vin" id="vin">—</span></div>
+    <span class="spacer"></span>
+    <span class="pastille" id="pastille" hidden></span>
+    <button class="ghost" id="refresh" title="Actualiser">↻</button>
+  </header>
+
+  <!-- ===================== Véhicule ===================== -->
+  <section role="tabpanel" id="p-vehicule">
+    <div class="vitrine">
+      <!-- Les deux illustrations sont chargées d'emblée et superposées : la
+           bascule fermée/ouverte se fait par opacité, sans rechargement ni
+           saut de mise en page au moment où une porte s'ouvre. -->
+      <div class="voiture">
+        <img id="img-ferme"  src="/static/modelx-ferme.jpg"  alt="Model X, portes fermées">
+        <img id="img-ouvert" src="/static/modelx-ouvert.jpg" alt="Model X, portes Falcon ouvertes" class="cache">
+        <div id="badge-verrou" class="badge" hidden>🔒</div>
+      </div>
+      <div class="sous" id="vitrine-sous"></div>
+    </div>
+
+    <div class="tuiles" id="tuiles"></div>
+
+    <h2>Position</h2>
+    <div class="carte" id="carte"><div class="vide">Aucune position connue.</div></div>
+    <div class="sous" id="carte-rue" style="color:var(--ink-soft);font-size:.85rem;padding:.5rem .1rem"></div>
+
+    <h2>Commandes</h2>
+    <div id="actions-vehicule"></div>
+
+    <footer>Les valeurs viennent de la télémétrie : elles datent du dernier changement, pas de l'instant présent.</footer>
+  </section>
+
+  <!-- ===================== Sécurité ===================== -->
+  <section role="tabpanel" id="p-securite" hidden>
+    <div class="tuiles" id="tuiles-securite"></div>
+
+    <div class="card" style="margin-top:.6rem">
+      <div class="row"><div class="lab">Comment ça marche
+        <small>Une voiture endormie n'émet rien, mais une intrusion la réveille — et au réveil elle
+        signale son état. La surveillance ne coûte donc rien tant qu'il ne se passe rien, là où la
+        sentinelle consomme environ 1 % de batterie par heure pour rester aux aguets.</small>
+      </div></div>
+      <div class="row"><div class="lab">Ce qui déclenche une alerte
+        <small>Écran central allumé dans un habitacle verrouillé · porte ouverte sur véhicule
+        toujours verrouillé · alarme antivol de série. Chaque signal est vérifié pendant 3 secondes
+        pour écarter ton arrivée avec la clé ou un branchement de la trappe.</small>
+      </div></div>
+    </div>
+
+    <h2>Ripostes sur intrusion</h2>
+    <div class="card" id="reglages-securite"></div>
+
+    <h2>Sentinelle manuelle</h2>
+    <div id="actions-securite"></div>
+
+    <h2>Historique</h2>
+    <div class="card" id="securite-historique"></div>
+  </section>
+
+  <!-- ===================== Charge ===================== -->
+  <section role="tabpanel" id="p-charge" hidden>
+    <div class="tuiles" id="tuiles-charge"></div>
+
+    <h2>Commandes</h2>
+    <div id="actions-charge"></div>
+
+    <h2>Heures creuses</h2>
+    <div class="card">
+      <div class="row"><div class="lab">Début<small>La voiture commence à charger à cette heure si elle est branchée au domicile.</small></div>
+        <input type="time" id="hc-debut" value="23:00"></div>
+      <div class="row"><div class="lab">Arrêt en fin de plage<small>Désactivé, la charge se poursuit jusqu'à la limite.</small></div>
+        <input type="checkbox" id="hc-fin-active"></div>
+      <div class="row" id="hc-fin-ligne" hidden><div class="lab">Fin</div><input type="time" id="hc-fin" value="07:00"></div>
+      <div class="row"><div class="lab">Jours</div>
+        <select id="hc-jours"><option value="tous">Tous les jours</option><option value="semaine">En semaine</option><option value="samedi,dimanche">Week-end</option></select></div>
+      <div class="row"><div class="lab">Programmer<small>Domicile déduit de la dernière position. La voiture doit être éveillée.</small></div>
+        <button class="ghost" id="hc-go">Envoyer</button></div>
+    </div>
+
+    <h2>Préconditionnement</h2>
+    <div class="card">
+      <div class="row"><div class="lab">Habitacle prêt à<small>Heure de <b>fin</b>, pas de départ : la voiture calcule son avance selon la température.</small></div>
+        <input type="time" id="pc-heure" value="08:00"></div>
+      <div class="row"><div class="lab">Jours</div>
+        <select id="pc-jours"><option value="semaine">En semaine</option><option value="tous">Tous les jours</option><option value="samedi,dimanche">Week-end</option></select></div>
+      <div class="row"><div class="lab">Programmer<small>Branchée, la voiture préconditionne sur le réseau plutôt que sur sa batterie.</small></div>
+        <button class="ghost" id="pc-go">Envoyer</button></div>
+    </div>
+  </section>
+
+  <!-- ===================== Entretien ===================== -->
+  <section role="tabpanel" id="p-entretien" hidden>
+    <h2>Pression des pneus</h2>
+    <div class="tuiles" id="pneus"></div>
+    <div class="card" id="pneus-detail" style="margin-top:.6rem"></div>
+    <h2>Logiciel Tesla</h2>
+    <div class="tuiles" id="maj-tuiles"></div>
+    <div class="card" id="maj-notes" style="margin-top:.6rem" hidden></div>
+    <div id="actions-maj" style="margin-top:.6rem"></div>
+
+    <h2>Journal du véhicule</h2>
+    <div class="card" id="journal"></div>
+    <footer>Alertes de diagnostic remontées par la voiture — Autopilot, charge, capteurs.
+      L'immense majorité n'a rien d'alarmant. Les heures sont celles des événements.</footer>
+  </section>
+
+  <!-- ===================== Réglages ===================== -->
+  <section role="tabpanel" id="p-reglages" hidden>
+    <h2>Seuils et comportement</h2>
+    <div class="card" id="reglages"></div>
+    <footer>Le <code>.env</code> fournit les défauts ; ces choix sont enregistrés en base
+      et pris en compte sans redémarrage.</footer>
+  </section>
+
+  <!-- ===================== Système ===================== -->
+  <section role="tabpanel" id="p-systeme" hidden>
+    <h2>Santé</h2>
+    <div class="card" id="systeme"></div>
+    <footer>Le chien de garde alerte sur Telegram quand l'un de ces points se dégrade.
+      Il ne peut pas signaler sa propre panne : <code>make check</code> couvre ce niveau.</footer>
+    <div class="card" style="margin-top:1rem">
+      <div class="row"><div class="lab">Session<small>Déconnecte cet appareil. Le jeton reste valable ailleurs.</small></div>
+        <a class="ghost" href="/logout" style="text-decoration:none;display:inline-block">Se déconnecter</a></div>
+    </div>
+  </section>
+
+</div>
+
+<nav>
+  <button data-tab="vehicule" aria-current="true"><em>🚗</em>Véhicule</button>
+  <button data-tab="securite"><em>🛡️</em>Sécurité</button>
+  <button data-tab="charge"><em>⚡</em>Charge</button>
+  <button data-tab="entretien"><em>🔧</em>Entretien</button>
+  <button data-tab="reglages"><em>🎚️</em>Réglages</button>
+  <button data-tab="systeme"><em>🩺</em>Système</button>
+</nav>
+
+<div id="maj" hidden>
+  <span>Nouvelle version disponible</span>
+  <button id="maj-go">Mettre à jour</button>
+</div>
+
+<div id="flash"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = async (m, url, body) => {
+  const r = await fetch(url, {method:m, headers: body?{'Content-Type':'application/json'}:{},
+                             body: body?JSON.stringify(body):undefined});
+  const txt = await r.text();
+  let data; try { data = JSON.parse(txt); } catch { data = txt; }
+  if (!r.ok) throw new Error(data?.detail || txt || r.status);
+  return data;
+};
+const flash = (texte, type='ok') => {
+  const el = document.createElement('div');
+  el.className = 'msg' + (type==='ok' ? '' : ' '+type);
+  el.textContent = texte;
+  $('#flash').append(el);
+  setTimeout(() => el.remove(), type==='err' ? 9000 : 4500);
+};
+
+let VIN = null, SEUIL_PNEU = 2.5, CHAMPS = {};
+
+// Version du serveur au moment où la page a été chargée. Si elle change,
+// c'est qu'un déploiement a eu lieu : on le dit au lieu de laisser tourner
+// une page périmée — un raccourci iPhone ne recharge jamais de lui-même.
+let VERSION = null;
+async function verifierVersion() {
+  try {
+    const {version} = await api('GET', '/version');
+    if (VERSION === null) { VERSION = version; return; }
+    if (version !== VERSION) $('#maj').hidden = false;
+  } catch {}
+}
+$('#maj-go').onclick = () => location.reload();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) verifierVersion(); });
+
+const ONGLETS = ['vehicule','securite','charge','entretien','reglages','systeme'];
+function ouvrir(nom) {
+  ONGLETS.forEach(o => { $('#p-'+o).hidden = o !== nom; });
+  document.querySelectorAll('nav button').forEach(b =>
+    b.setAttribute('aria-current', String(b.dataset.tab === nom)));
+  try { localStorage.setItem('onglet', nom); } catch {}
+  window.scrollTo(0,0);
+  if (nom === 'vehicule') dessinerCarte();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => ouvrir(b.dataset.tab));
+
+// Balayage horizontal entre onglets. On exige un geste franc — 60 px, plus
+// horizontal que vertical — pour ne pas confondre avec un défilement, et on
+// ignore ce qui part d'un champ de saisie ou de la carte.
+(() => {
+  let x0 = 0, y0 = 0, actif = false;
+  const ignorer = el => el.closest('input, select, textarea, .carte');
+  addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    actif = !ignorer(e.target); x0 = t.clientX; y0 = t.clientY;
+  }, {passive: true});
+  addEventListener('touchend', e => {
+    if (!actif) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - x0, dy = t.clientY - y0;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const courant = ONGLETS.indexOf(document.querySelector('nav button[aria-current="true"]').dataset.tab);
+    const suivant = courant + (dx < 0 ? 1 : -1);
+    if (suivant >= 0 && suivant < ONGLETS.length) ouvrir(ONGLETS[suivant]);
+  }, {passive: true});
+})();
+
+const age = iso => {
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 90) return "à l'instant";
+  if (s < 5400) return `il y a ${Math.round(s/60)} min`;
+  if (s < 172800) return `il y a ${Math.round(s/3600)} h`;
+  return `il y a ${Math.round(s/86400)} j`;
+};
+const num = v => typeof v === 'number' ? v : parseFloat(v);
+// Le serveur fournit `libelle` pour tout ce qui demande une traduction ou une
+// conversion : la page n'a pas à connaître les énumérations Tesla.
+const val = k => CHAMPS[k]?.valeur;
+const lib = k => CHAMPS[k]?.libelle ?? (CHAMPS[k]?.valeur ?? null);
+const quand = k => CHAMPS[k]?.quand;
+
+const tuile = (titre, valeur, sous='', classe='', extra='') =>
+  `<div class="tuile ${classe}"><div class="t">${titre}</div><div class="v">${valeur}</div>
+   ${sous?`<div class="s">${sous}</div>`:''}${extra}</div>`;
+const ligne = (l, v, c='', aide='') =>
+  `<div class="row"><div class="lab">${l}${aide?`<small>${aide}</small>`:''}</div><span class="val ${c}">${v}</span></div>`;
+
+const FENETRES = {FdWindow:'avant gauche', FpWindow:'avant droite',
+                  RdWindow:'arrière gauche', RpWindow:'arrière droite'};
+const OUVRANTS = {DriverFront:'porte conducteur', PassengerFront:'porte passager',
+                  DriverRear:'porte arrière gauche', PassengerRear:'porte arrière droite',
+                  TrunkFront:'coffre avant', TrunkRear:'coffre arrière'};
+const ouverts = v => (v && typeof v === 'object')
+  ? Object.entries(v).filter(([,x])=>x).map(([k])=>OUVRANTS[k]||k) : [];
+
+// --- État ------------------------------------------------------------------
+
+let POSITION = null, CONNEXION = null;
+
+async function chargerEtat() {
+  const d = await api('GET','/live');
+  VIN = d.vin; CHAMPS = d.champs || {}; POSITION = d.position; CONNEXION = d.connexion;
+  $('#vin').textContent = d.vin || 'aucun véhicule';
+  if (val('VehicleName')) $('#nom').textContent = val('VehicleName');
+
+  const soc = num(val('Soc'));
+  const recent = quand('Soc') || quand('Locked');
+  if (!isNaN(soc)) {
+    const p = $('#pastille'); p.hidden = false;
+    p.textContent = Math.round(soc)+' %'; p.classList.toggle('low', soc < 20);
+  }
+  // L'état de sommeil vient des événements de connectivité, pas de l'âge des
+  // signaux : une voiture éveillée mais immobile n'émet rien de nouveau.
+  const cx = d.connexion;
+  const dot = $('#dot');
+  dot.className = 'dot ' + (cx ? (cx.eveillee ? 'on' : 'off') : '');
+  dot.title = cx ? (cx.eveillee ? `Éveillée depuis ${age(cx.depuis)}` : `Endormie depuis ${age(cx.depuis)}`) : 'État inconnu';
+
+  dessinerVoiture();
+  dessinerTuiles(soc, recent);
+  dessinerTuilesCharge(soc);
+  dessinerSecurite();
+  dessinerPneus();
+  dessinerLogiciel();
+  dessinerCarte();
+}
+
+// --- Illustration ----------------------------------------------------------
+
+function dessinerVoiture() {
+  const o = ouverts(val('DoorState'));
+  const verrou = val('Locked');
+  // Portes Falcon ouvertes sur l'illustration dès que la voiture est
+  // déverrouillée ou qu'un ouvrant l'est : l'image dit « accessible ».
+  const ouverte = o.length > 0 || verrou === false;
+  $('#img-ouvert').classList.toggle('cache', !ouverte);
+  $('#img-ferme').classList.toggle('cache', ouverte);
+
+  const badge = $('#badge-verrou');
+  if (verrou === undefined) badge.hidden = true;
+  else {
+    badge.hidden = false;
+    badge.textContent = verrou ? '🔒' : '🔓';
+    badge.classList.toggle('ouvert', !verrou);
+  }
+
+  const vitreOuverte = Object.keys(FENETRES).some(k => {
+    const l = CHAMPS[k]?.libelle;
+    return l && l !== 'fermée' && l !== 'inconnu';
+  });
+
+  const bits = [];
+  if (CONNEXION) bits.push(CONNEXION.eveillee ? '🟢 éveillée' : '🟠 endormie');
+  if (val('LocatedAtHome') === true) bits.push('🏠 à la maison');
+  else if (val('LocatedAtWork') === true) bits.push('🏢 au travail');
+  else if (val('LocatedAtFavorite') === true) bits.push('⭐ lieu favori');
+  if (val('DriverSeatOccupied') === true) bits.push('🧍 siège occupé');
+  if (o.length) bits.push('Ouvert : ' + o.join(', '));
+  if (vitreOuverte) bits.push('une vitre n’est pas fermée');
+  if (lib('Gear')) bits.push(lib('Gear'));
+  $('#vitrine-sous').textContent = bits.join(' · ');
+}
+
+// --- Tuiles ----------------------------------------------------------------
+
+function dessinerTuiles(soc, recent) {
+  const t = [];
+
+  if (!isNaN(soc)) {
+    const cible = num(val('ChargeLimitSoc'));
+    t.push(tuile('Batterie', `${Math.round(soc)} %`,
+      lib('EstBatteryRange') ? `${lib('EstBatteryRange')} d'autonomie` : (isNaN(cible)?'':`cible ${cible} %`),
+      soc < 20 ? 'warn' : 'good',
+      `<div class="jauge"><i class="${soc<20?'low':''}" style="width:${Math.max(2,soc)}%"></i></div>`));
+  }
+
+  if (lib('DetailedChargeState')) {
+    const etat = lib('DetailedChargeState');
+    const h = num(val('TimeToFullCharge'));
+    const amp = num(val('ChargeAmps'));
+    const sous = etat === 'en charge'
+      ? [!isNaN(amp) && amp>0 ? `${amp} A` : '', !isNaN(h) && h>0 ? `~${h.toFixed(1)} h restantes` : ''].filter(Boolean).join(' · ')
+      : '';
+    t.push(tuile('Charge', etat, sous, etat==='en charge'?'good':(etat==='sans alimentation'?'warn':'')));
+  }
+
+  if (lib('Odometer')) t.push(tuile('Kilométrage', lib('Odometer')));
+
+  if (recent) t.push(tuile('Dernière mise à jour', age(recent),
+    new Date(recent).toLocaleString('fr-FR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})));
+
+  const verrou = val('Locked');
+  if (verrou !== undefined)
+    t.push(tuile('Verrouillage', verrou?'Verrouillé':'Déverrouillé', '', verrou?'good':'warn'));
+
+  const fen = Object.entries(FENETRES)
+    .map(([k,nom]) => [nom, CHAMPS[k]?.libelle])
+    .filter(([,l]) => l && l !== 'inconnu');
+  if (fen.length) {
+    const pas = fen.filter(([,l]) => l !== 'fermée');
+    t.push(tuile('Fenêtres', pas.length ? `${pas.length} ouverte${pas.length>1?'s':''}` : 'Toutes fermées',
+      pas.map(([n,l]) => `${n} : ${l}`).join(', '), pas.length?'warn':'good'));
+  }
+
+  const dedans = lib('InsideTemp'), dehors = lib('OutsideTemp');
+  if (dedans || dehors) {
+    const mode = lib('ClimateKeeperMode');
+    const cop = lib('CabinOverheatProtectionMode');
+    const sous = [dehors ? `${dehors} dehors` : '',
+                  mode && mode !== 'désactivé' ? mode : (lib('HvacPower') ? `clim ${lib('HvacPower')}` : ''),
+                  cop && cop !== 'désactivée' ? `surchauffe : ${cop}` : ''].filter(Boolean).join(' · ');
+    t.push(tuile('Habitacle', dedans || '—', sous,
+      (mode === 'mode chien') ? 'warn' : ''));
+  }
+
+  const o = ouverts(val('DoorState'));
+  if (val('DoorState') !== undefined)
+    t.push(tuile('Portes et coffres', o.length ? `${o.length} ouvert${o.length>1?'s':''}` : 'Tout fermé',
+      o.join(', '), o.length?'warn':'good'));
+
+  $('#tuiles').innerHTML = t.join('') || '<div class="tuile"><div class="t">Aucune donnée</div><div class="v">—</div></div>';
+}
+
+function dessinerSecurite() {
+  const t = [];
+  const sent = lib('SentryMode');
+  const active = sent && !['désactivée','inactive','inconnue'].includes(sent);
+  t.push(tuile('Surveillance', active ? `Sentinelle ${sent}` : 'Passive',
+    active ? '~1 % de batterie par heure' : 'sans consommation',
+    sent === 'en alerte' || sent === 'panique' ? 'bad' : (active ? 'warn' : 'good')));
+  const verrou = val('Locked');
+  if (verrou !== undefined)
+    t.push(tuile('Véhicule', verrou ? 'Verrouillé' : 'Déverrouillé', '', verrou ? 'good' : 'warn'));
+  if (lib('CenterDisplay')) t.push(tuile('Écran central', lib('CenterDisplay'),
+    lib('CenterDisplay') === 'verrouillé' ? 'allumé, habitacle fermé' : ''));
+  const home = val('LocatedAtHome'), work = val('LocatedAtWork'), fav = val('LocatedAtFavorite');
+  if (home !== undefined)
+    t.push(tuile('Lieu', home ? 'À la maison' : work ? 'Au travail' : fav ? 'Lieu favori' : 'Ailleurs',
+      home ? 'un départ sans ta clé déclenche une alerte' : 'surveillance identique, sans contexte domicile',
+      home ? 'good' : ''));
+  const assis = val('DriverSeatOccupied');
+  if (assis !== undefined)
+    t.push(tuile('Siège conducteur', assis ? 'Occupé' : 'Libre', '',
+      assis && verrou ? 'bad' : (assis ? 'warn' : 'good')));
+  $('#tuiles-securite').innerHTML = t.join('');
+}
+
+const dureeCourte = s => s == null ? '' : (s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s/60)} min` : `${(s/3600).toFixed(1)} h`);
+
+async function chargerJournal() {
+  const evts = await api('GET', '/vehicle/alerts?limit=60');
+  if (!evts.length) {
+    $('#journal').innerHTML = ligne('Aucune alerte', '—', 'good');
+    return;
+  }
+  $('#journal').innerHTML = evts.map(e => {
+    const quand = e.debut ? new Date(e.debut) : new Date(e.recu);
+    const sous = [e.systeme, e.niveau, dureeCourte(e.duree_s)].filter(Boolean).join(' · ');
+    return ligne(
+      `${e.securite ? '🛡️ ' : ''}${e.libelle}`,
+      quand.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}),
+      e.securite ? 'bad' : (e.niveau === 'alerte' ? 'warn' : ''),
+      `${sous} · <code style="font-size:.7rem;opacity:.7">${e.nom}</code>`);
+  }).join('');
+}
+
+async function chargerHistorique() {
+  const evts = await api('GET', '/security/events?limit=30');
+  if (!evts.length) {
+    $('#securite-historique').innerHTML = ligne('Aucun événement', '—', 'good',
+      'Ni intrusion détectée, ni alerte remontée par le véhicule.');
+    return;
+  }
+  $('#securite-historique').innerHTML = evts.map(e => ligne(
+    e.type === 'intrusion' ? '🚨 Intrusion' : `⚠️ ${e.detail}`,
+    age(e.quand), e.type === 'intrusion' ? 'bad' : 'warn',
+    `${e.type === 'intrusion' ? e.detail : e.nom} · ${new Date(e.quand).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`
+  )).join('') + `<div class="row"><div class="lab"><small>Les intrusions sont nos conclusions ; les alertes du véhicule restent dans le journal d'Entretien.</small></div>
+    <button class="ghost" id="vider-historique">Vider</button></div>`;
+  $('#vider-historique').onclick = async () => {
+    if (!confirm("Effacer l'historique des intrusions ?")) return;
+    await api('DELETE', '/security/events');
+    flash('Historique vidé.'); chargerHistorique();
+  };
+}
+
+function dessinerTuilesCharge(soc) {
+  const t = [];
+  if (lib('DetailedChargeState')) t.push(tuile('État', lib('DetailedChargeState')));
+  const cible = num(val('ChargeLimitSoc'));
+  if (!isNaN(cible)) t.push(tuile('Limite', `${cible} %`, isNaN(soc)?'':`actuellement ${Math.round(soc)} %`));
+  const h = num(val('TimeToFullCharge'));
+  if (!isNaN(h) && h > 0) t.push(tuile('Temps restant', `${h.toFixed(1)} h`));
+  const amp = num(val('ChargeAmps'));
+  if (!isNaN(amp)) t.push(tuile('Intensité', `${amp} A`));
+  $('#tuiles-charge').innerHTML = t.join('');
+}
+
+// --- Pneus -----------------------------------------------------------------
+
+const PNEUS = {TpmsPressureFl:'Avant gauche', TpmsPressureFr:'Avant droit',
+               TpmsPressureRl:'Arrière gauche', TpmsPressureRr:'Arrière droit'};
+const MESURES = {TpmsPressureFl:'TpmsLastSeenPressureTimeFl', TpmsPressureFr:'TpmsLastSeenPressureTimeFr',
+                 TpmsPressureRl:'TpmsLastSeenPressureTimeRl', TpmsPressureRr:'TpmsLastSeenPressureTimeRr'};
+
+function dessinerPneus() {
+  const t = [], d = [];
+  for (const [k, nom] of Object.entries(PNEUS)) {
+    const v = num(val(k));
+    if (isNaN(v)) continue;
+    const bas = v < SEUIL_PNEU;
+    t.push(tuile(nom, `${v.toFixed(2)}`, 'bar', bas?'bad':'good'));
+    const m = val(MESURES[k]);
+    if (m) d.push(ligne(nom, `mesuré ${age(m)}`, ''));
+  }
+  $('#pneus').innerHTML = t.join('') ||
+    '<div class="tuile"><div class="t">Pression</div><div class="v">—</div><div class="s">Pas encore de relevé.</div></div>';
+
+  const alerte = val('TpmsHardWarnings');
+  if (alerte) d.unshift(ligne('Alerte véhicule', String(alerte), 'bad',
+    'Le véhicule signale une pression sévèrement hors norme.'));
+  $('#pneus-detail').innerHTML = d.join('');
+}
+
+// --- Logiciel Tesla --------------------------------------------------------
+
+let NOTES_CHARGEES = null;
+
+function dessinerLogiciel() {
+  const t = [];
+  const installe = val('Version'), dispo = val('SoftwareUpdateVersion');
+  const dl = num(val('SoftwareUpdateDownloadPercentComplete'));
+  const inst = num(val('SoftwareUpdateInstallationPercentComplete'));
+  const duree = num(val('SoftwareUpdateExpectedDurationMinutes'));
+
+  if (installe) t.push(tuile('Version installée', String(installe)));
+  if (dispo) {
+    const etat = !isNaN(inst) && inst > 0 ? `installation ${inst} %`
+               : !isNaN(dl) && dl < 100 ? `téléchargement ${dl} %`
+               : `prête${!isNaN(duree) && duree > 0 ? ` · ~${duree} min` : ''}`;
+    t.push(tuile('Mise à jour disponible', String(dispo), etat, 'warn'));
+  } else if (installe) {
+    t.push(tuile('Mise à jour', 'Aucune en attente', '', 'good'));
+  }
+  $('#maj-tuiles').innerHTML = t.join('') ||
+    '<div class="tuile"><div class="t">Logiciel</div><div class="v">—</div><div class="s">Version pas encore remontée.</div></div>';
+
+  // Notes de version : un appel à Tesla, fait une seule fois par version proposée.
+  if (dispo && NOTES_CHARGEES !== String(dispo) && VIN) {
+    NOTES_CHARGEES = String(dispo);
+    api('GET', `/vehicles/${VIN}/release-notes?staged=true`).then(r => {
+      const notes = (r.response?.release_notes || []).slice(0, 12);
+      if (!notes.length) return;
+      $('#maj-notes').hidden = false;
+      $('#maj-notes').innerHTML = notes.map(n => ligne(n.title || '', '', '',
+        (n.description || '').replace(/</g,'&lt;').slice(0, 300))).join('');
+    }).catch(() => {});
+  }
+  if (!dispo) { $('#maj-notes').hidden = true; NOTES_CHARGEES = null; }
+}
+
+// --- Carte -----------------------------------------------------------------
+
+function dessinerCarte() {
+  const c = $('#carte');
+  if (!POSITION) { c.innerHTML = '<div class="vide">Aucune position connue.</div>'; $('#carte-rue').textContent=''; return; }
+
+  const {lat, lon, rue} = POSITION;
+  const Z = 16, N = 2**Z, T = 256;
+  const px = (lon+180)/360*N*T;
+  const r = lat*Math.PI/180;
+  const py = (1 - Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*N*T;
+
+  const W = c.clientWidth || 340, H = c.clientHeight || 176;
+  // Origine : le point du véhicule doit tomber au centre du cadre.
+  const ox = W/2 - px, oy = H/2 - py;
+  const x0 = Math.floor((px-W/2)/T), x1 = Math.floor((px+W/2)/T);
+  const y0 = Math.floor((py-H/2)/T), y1 = Math.floor((py+H/2)/T);
+
+  let html = '<div class="tuilesosm">';
+  for (let x = x0; x <= x1; x++)
+    for (let y = y0; y <= y1; y++)
+      html += `<img loading="lazy" alt="" src="https://tile.openstreetmap.org/${Z}/${(x%N+N)%N}/${y}.png"
+                 style="left:${Math.round(x*T+ox)}px;top:${Math.round(y*T+oy)}px">`;
+  html += '</div><div class="marqueur"></div><div class="credit">© OpenStreetMap</div>';
+  c.innerHTML = html;
+
+  $('#carte-rue').innerHTML = (rue ? `📍 ${rue} — ` : '📍 ') +
+    `<a href="https://maps.apple.com/?ll=${lat},${lon}&q=Voiture" target="_blank" rel="noopener">ouvrir dans Plans</a>`;
+}
+
+// --- Commandes -------------------------------------------------------------
+
+async function chargerActions() {
+  const liste = await api('GET','/actions');
+  const par = Object.fromEntries(liste.map(a => [a.cle, a]));
+  const rendu = items => {
+    const g = {};
+    items.forEach(a => (g[a.groupe_libelle] ??= []).push(a));
+    return Object.entries(g).map(([titre, xs]) => `
+      <div class="sousgroupe">${titre}</div>
+      <div class="grid">${xs.map(a => `
+        <button class="act" data-cle="${a.cle}" title="${a.aide||''}">
+          <em>${a.icone}</em><span>${a.libelle}</span></button>`).join('')}</div>`).join('');
+  };
+  $('#actions-charge').innerHTML   = rendu(liste.filter(a => a.groupe === 'charge'));
+  $('#actions-securite').innerHTML = rendu(liste.filter(a => a.groupe === 'securite'));
+  $('#actions-maj').innerHTML      = rendu(liste.filter(a => a.groupe === 'maj'));
+  $('#actions-vehicule').innerHTML = rendu(liste.filter(a => !['charge','securite','maj'].includes(a.groupe)));
+  document.querySelectorAll('.act').forEach(b => b.onclick = () => lancer(par[b.dataset.cle], b));
+}
+
+async function lancer(action, btn) {
+  if (!VIN) return flash('Aucun véhicule connu.', 'err');
+  let parametre = null;
+  if (action.parametre) {
+    const p = action.parametre;
+    const saisie = prompt(`${p.libelle} (${p.min}–${p.max})`, p.defaut);
+    if (saisie === null) return;
+    parametre = saisie;
+  }
+  if (action.confirmation && !confirm(`${action.libelle} ?`)) return;
+
+  btn.disabled = true; btn.classList.add('busy');
+  try {
+    await api('POST', `/vehicles/${VIN}/actions/${action.cle}`, {parametre});
+    flash(`${action.libelle} — envoyé.`);
+  } catch (e) {
+    // Les erreurs métier de Tesla sont plus parlantes que toute reformulation.
+    flash(String(e.message).slice(0,220), 'err');
+  } finally {
+    btn.disabled = false; btn.classList.remove('busy');
+    setTimeout(chargerEtat, 3000);
+  }
+}
+
+// --- Réglages --------------------------------------------------------------
+
+async function chargerReglages() {
+  const liste = await api('GET','/preferences');
+  SEUIL_PNEU = liste.find(r => r.cle === 'tpms_min_pressure')?.valeur ?? 2.5;
+  const rendreReglage = r => {
+    let champ;
+    if (r.type === 'bool') champ = `<input type="checkbox" data-cle="${r.cle}" ${r.valeur?'checked':''}>`;
+    else if (r.choix.length) champ = `<select data-cle="${r.cle}">${r.choix.map(c=>`<option ${c===r.valeur?'selected':''}>${c}</option>`).join('')}</select>`;
+    else champ = `<input type="number" data-cle="${r.cle}" value="${r.valeur}" min="${r.min??''}" max="${r.max??''}" step="${r.type==='int'?1:0.1}">`;
+    return `<div class="row"><div class="lab">${r.libelle}${r.unite?` <span style="color:var(--muted)">(${r.unite})</span>`:''}
+      ${r.aide?`<small>${r.aide}</small>`:''}</div>${champ}
+      ${r.personnalise?`<button class="reset" data-reset="${r.cle}" title="Revenir à ${r.defaut}">défaut</button>`:''}</div>`;
+  };
+  $('#reglages').innerHTML = liste.filter(r => r.section !== 'securite').map(rendreReglage).join('');
+  $('#reglages-securite').innerHTML = liste.filter(r => r.section === 'securite').map(rendreReglage).join('');
+
+  document.querySelectorAll('#reglages [data-cle], #reglages-securite [data-cle]').forEach(el => {
+    el.onchange = async () => {
+      const valeur = el.type === 'checkbox' ? el.checked : el.value;
+      try { await api('PUT', `/preferences/${el.dataset.cle}`, {valeur}); flash('Réglage enregistré.'); }
+      catch (e) { flash(String(e.message), 'err'); }
+      await chargerReglages();
+      chargerEtat();
+    };
+  });
+  document.querySelectorAll('#reglages [data-reset], #reglages-securite [data-reset]').forEach(el => {
+    el.onclick = async () => {
+      await api('DELETE', `/preferences/${el.dataset.reset}`);
+      flash('Revenu au défaut.'); await chargerReglages(); chargerEtat();
+    };
+  });
+}
+
+// --- Système ---------------------------------------------------------------
+
+async function chargerSysteme() {
+  const [s, ver] = await Promise.all([api('GET','/status'), api('GET','/version').catch(() => null)]);
+  const v = s.vehicule || {}, t = v.telemetrie || {}, l = [];
+  if (ver?.version) l.push(ligne('Version de l’application', ver.version, '',
+    'Identifiant horodaté du dernier déploiement.'));
+  l.push(ligne('Clé virtuelle', v.cle_appairee?'appairée':'ABSENTE', v.cle_appairee?'good':'bad'));
+  l.push(ligne('Télémétrie', t.synced?`synchronisée · ${t.champs?.length??0} champs`:'non adoptée',
+    t.synced?'good':'warn', t.synced?'':'La voiture adoptera la configuration à son prochain réveil.'));
+  if (v.firmware) l.push(ligne('Firmware', v.firmware));
+  l.push(ligne('Dernier signal', s.flux.dernier_signal?age(s.flux.dernier_signal):'aucun'));
+  l.push(ligne('Signaux sur 24 h', s.flux.signaux_24h));
+  if (s.certificat.jours_restants !== undefined)
+    l.push(ligne('Certificat TLS', `${s.certificat.jours_restants} j`, s.certificat.jours_restants<15?'warn':''));
+  if (s.jeton.present)
+    l.push(ligne('Jeton Tesla', `~${s.jeton.refresh_jours_restants_estimes} j`,
+      s.jeton.refresh_jours_restants_estimes<14?'warn':'', 'Le jeton de rafraîchissement expire à 3 mois.'));
+  l.push(ligne('Coût du mois', `${s.cout.dollars_estimes} $`, 'good',
+    `${s.cout.signaux_ce_mois} signaux · remise de 10 $ appliquée`));
+  const err = (v.erreurs_recentes||[]).length;
+  if (err) l.push(ligne('Erreurs télémétrie', `${err} sur 24 h`, 'bad'));
+  $('#systeme').innerHTML = l.join('');
+}
+
+// --- Planifications --------------------------------------------------------
+
+$('#hc-fin-active').onchange = e => { $('#hc-fin-ligne').hidden = !e.target.checked; };
+
+async function programmer(btn, url, corps) {
+  if (!VIN) return flash('Aucun véhicule connu.', 'err');
+  btn.disabled = true;
+  try { const r = await api('POST', `/vehicles/${VIN}/${url}`, corps); flash(`Programmé : ${r.resume}`); }
+  catch (e) { flash(String(e.message).slice(0,220), 'err'); }
+  finally { btn.disabled = false; }
+}
+$('#hc-go').onclick = () => programmer($('#hc-go'), 'charge-schedule', {
+  debut: $('#hc-debut').value, fin: $('#hc-fin-active').checked ? $('#hc-fin').value : null,
+  jours: $('#hc-jours').value});
+$('#pc-go').onclick = () => programmer($('#pc-go'), 'precondition-schedule', {
+  heure: $('#pc-heure').value, jours: $('#pc-jours').value});
+
+// --- Démarrage -------------------------------------------------------------
+
+async function tout() {
+  for (const [nom, fn] of [['réglages',chargerReglages], ['état',chargerEtat],
+                           ['commandes',chargerActions], ['historique',chargerHistorique], ['journal',chargerJournal], ['système',chargerSysteme]]) {
+    try { await fn(); } catch (e) { flash(`Chargement ${nom} : ${e.message}`.slice(0,200), 'warn'); }
+  }
+}
+$('#refresh').onclick = tout;
+verifierVersion();
+setInterval(verifierVersion, 60000);
+addEventListener('resize', () => { if (!$('#p-vehicule').hidden) dessinerCarte(); });
+
+let depart = 'vehicule';
+try { if (ONGLETS.includes(localStorage.getItem('onglet'))) depart = localStorage.getItem('onglet'); } catch {}
+ouvrir(depart);
+tout();
+setInterval(chargerEtat, 60000);
+</script>
+</body>
+</html>
