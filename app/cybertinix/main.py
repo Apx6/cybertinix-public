@@ -452,8 +452,10 @@ async def run_action(
         raise HTTPException(400, str(exc)) from exc
 
     token = await oauth.valid_access_token(session, SUBJECT)
+    client = FleetClient(token)
+    envoyer = client.command_direct if action.direct else client.command
     try:
-        reponse = await FleetClient(token).command(vin, action.commande, corps)
+        reponse = await envoyer(vin, action.commande, corps)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             exc.response.status_code,

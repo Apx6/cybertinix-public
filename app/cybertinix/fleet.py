@@ -155,6 +155,16 @@ class FleetClient:
 
     # --- Divers --------------------------------------------------------------
 
+    async def command_direct(self, vin: str, name: str, payload: dict | None = None) -> dict:
+        """Commande envoyée à l'API Fleet sans passer par le proxy signant.
+
+        Réservé aux commandes que le SDK de signature ne connaît pas — le
+        boombox, notamment — et que l'API accepte malgré tout en REST parce
+        qu'elles passent par l'infodivertissement, pas par le calculateur
+        sécurisé. C'est ce que fait SentryGuard. Pour tout le reste, `command`.
+        """
+        return await self._post(f"/api/1/vehicles/{vin}/command/{name}", json=payload or {})
+
     async def wake_up(self, vin: str) -> dict:
         """Réveille le véhicule.
 

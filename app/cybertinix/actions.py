@@ -27,6 +27,9 @@ class Action:
     # Clés recevant la même valeur que le paramètre principal. `set_temps`
     # attend une consigne par côté ; on n'en demande qu'une à l'utilisateur.
     miroir: tuple[str, ...] = ()
+    # Envoyée à l'API Fleet directement, sans le proxy signant. Pour les seules
+    # commandes que le SDK ne connaît pas et que l'API accepte en REST.
+    direct: bool = False
 
 
 ACTIONS: tuple[Action, ...] = (
@@ -183,6 +186,24 @@ ACTIONS: tuple[Action, ...] = (
         "phares", "Appels de phares", "flash_lights", "reperage", "💡",
         aide="Nécessite que le véhicule soit en stationnement.",
     ),
+    # Le haut-parleur extérieur (« Boombox »). Le SDK de signature ne connaît
+    # pas cette commande : elle part en REST direct, comme chez SentryGuard.
+    # Tesla documente deux sons : 0 = prout aléatoire, 2000 = ping.
+    Action(
+        "prout", "Prout", "remote_boombox", "reperage", "💨",
+        corps={"sound": 0},
+        confirmation=True,
+        direct=True,
+        aide="Un son choisi au hasard dans la collection de Tesla, par le haut-parleur "
+             "extérieur. Véhicule en stationnement. Peut être désactivé par Tesla "
+             "selon la région.",
+    ),
+    Action(
+        "ping", "Ping de localisation", "remote_boombox", "reperage", "📍",
+        corps={"sound": 2000},
+        direct=True,
+        aide="Un signal sonore discret pour retrouver la voiture sur un parking.",
+    ),
 )
 
 PAR_CLE = {a.cle: a for a in ACTIONS}
@@ -236,6 +257,7 @@ def describe() -> list[dict]:
             "confirmation": a.confirmation,
             "aide": a.aide,
             "parametre": a.parametre,
+            "direct": a.direct,
         }
         for a in ACTIONS
     ]
