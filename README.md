@@ -22,6 +22,22 @@ silencieuses, et les planifications natives du véhicule.
 Le retour d'expérience de la mise en service — ce que la documentation Tesla
 ne dit pas assez fort — est dans la section « Pièges connus » en fin de page.
 
+## Aperçu
+
+Interface sur téléphone, six onglets. Captures réalisées sur une maquette
+avec des données fictives.
+
+<p align="center">
+  <img src="docs/captures/vehicule.png" width="30%" alt="Onglet Véhicule : illustration, tuiles d'état, carte, commandes">
+  <img src="docs/captures/securite.png" width="30%" alt="Onglet Sécurité : surveillance, ripostes, historique">
+  <img src="docs/captures/entretien.png" width="30%" alt="Onglet Entretien : pneus, mise à jour Tesla, journal">
+</p>
+<p align="center">
+  <img src="docs/captures/charge.png" width="30%" alt="Onglet Charge">
+  <img src="docs/captures/reglages.png" width="30%" alt="Onglet Réglages">
+  <img src="docs/captures/systeme.png" width="30%" alt="Onglet Système">
+</p>
+
 ## Architecture
 
 ```
