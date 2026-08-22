@@ -310,6 +310,34 @@ async def porte_forcee(ctx: Context) -> str | None:
 
 
 @rule
+async def armement(ctx: Context) -> str | None:
+    """Tient à jour l'état armé / désarmé du véhicule.
+
+    Armé : verrouillé à l'arrêt, siège vide — le propriétaire est parti.
+    Désarmé : déverrouillé par la clé, ou en route. Une Tesla verrouille ses
+    portes toute seule quand elle roule ; sans cet état, le conducteur qui
+    bouge sur son siège est pris pour un intrus.
+    """
+    if ctx.name == "Locked":
+        if ctx.value in (False, "false") and ctx.previous not in (False, "false"):
+            await security.armer(ctx.vin, False, "déverrouillage")
+        elif ctx.value in (True, "true") and ctx.previous not in (True, "true"):
+            gear = as_gear(await ctx.latest("Gear") or "")
+            siege = await ctx.latest("DriverSeatOccupied")
+            if gear in (None, "P") and siege is not True:
+                await security.armer(ctx.vin, True, "verrouillage à l'arrêt, siège vide")
+            else:
+                await security.armer(ctx.vin, False, "verrouillage en route ou avec quelqu'un à bord")
+    elif ctx.name == "Gear":
+        if as_gear(ctx.value) not in (None, "P"):
+            await security.armer(ctx.vin, False, "véhicule en route")
+    elif ctx.name == "VehicleSpeed":
+        if (as_number(ctx.value) or 0) > 0:
+            await security.armer(ctx.vin, False, "véhicule en mouvement")
+    return None
+
+
+@rule
 async def siege_occupe(ctx: Context) -> str | None:
     """Quelqu'un s'assoit : vérification différée dans security.py."""
     if ctx.name != "DriverSeatOccupied":

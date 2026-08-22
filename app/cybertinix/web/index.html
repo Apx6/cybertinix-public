@@ -390,11 +390,11 @@ const ouverts = v => (v && typeof v === 'object')
 
 // --- État ------------------------------------------------------------------
 
-let POSITION = null, CONNEXION = null;
+let POSITION = null, CONNEXION = null, ARMEE = false;
 
 async function chargerEtat() {
   const d = await api('GET','/live');
-  VIN = d.vin; CHAMPS = d.champs || {}; POSITION = d.position; CONNEXION = d.connexion;
+  VIN = d.vin; CHAMPS = d.champs || {}; POSITION = d.position; CONNEXION = d.connexion; ARMEE = !!d.armee;
   $('#vin').textContent = d.vin || 'aucun véhicule';
   if (val('VehicleName')) $('#nom').textContent = val('VehicleName');
 
@@ -446,6 +446,7 @@ function dessinerVoiture() {
 
   const bits = [];
   if (CONNEXION) bits.push(CONNEXION.eveillee ? '🟢 éveillée' : '🟠 endormie');
+  bits.push(ARMEE ? '🛡️ armée' : '🛡️ désarmée');
   if (val('LocatedAtHome') === true) bits.push('🏠 à la maison');
   else if (val('LocatedAtWork') === true) bits.push('🏢 au travail');
   else if (val('LocatedAtFavorite') === true) bits.push('⭐ lieu favori');
@@ -520,9 +521,12 @@ function dessinerSecurite() {
   const t = [];
   const sent = lib('SentryMode');
   const active = sent && !['désactivée','inactive','inconnue'].includes(sent);
-  t.push(tuile('Surveillance', active ? `Sentinelle ${sent}` : 'Passive',
-    active ? '~1 % de batterie par heure' : 'sans consommation',
-    sent === 'en alerte' || sent === 'panique' ? 'bad' : (active ? 'warn' : 'good')));
+  // Armée = verrouillée à l'arrêt, siège vide : le propriétaire est parti et
+  // les détecteurs sont en service. Désarmée = en route ou quelqu'un à bord.
+  t.push(tuile('Surveillance',
+    active ? `Sentinelle ${sent}` : (ARMEE ? 'Armée' : 'Désarmée'),
+    active ? '~1 % de batterie par heure' : (ARMEE ? 'passive, sans consommation' : 'en route ou propriétaire à bord'),
+    sent === 'en alerte' || sent === 'panique' ? 'bad' : (active ? 'warn' : (ARMEE ? 'good' : ''))));
   const verrou = val('Locked');
   if (verrou !== undefined)
     t.push(tuile('Véhicule', verrou ? 'Verrouillé' : 'Déverrouillé', '', verrou ? 'good' : 'warn'));

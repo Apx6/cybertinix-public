@@ -20,7 +20,7 @@ from cryptography import x509
 from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import enums, geocode, oauth, prefs
+from . import enums, geocode, oauth, prefs, security
 from .config import settings
 from .fleet import FleetClient
 from .models import ConnectivityEvent, OAuthToken, Signal
@@ -304,6 +304,7 @@ async def live(session: AsyncSession) -> dict:
         "position": await _position(session, champs),
         "unite_distance": unite,
         "connexion": await _connexion(session, vin),
+        "armee": await security.armee_pour(vin),
     }
 
 

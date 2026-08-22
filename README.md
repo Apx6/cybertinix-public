@@ -237,6 +237,15 @@ par la clé** — remorquage ou vol, signalé sans riposte (klaxonner une voitur
 sur une dépanneuse n'apporte rien). Le véhicule sait lui-même s'il est chez toi
 grâce au champ `LocatedAtHome`.
 
+**La voiture doit être armée pour qu'un détecteur conclue.** Armée = verrouillée
+à l'arrêt, siège vide — le propriétaire est parti. Désarmée = déverrouillée par
+la clé, ou en route. Ce n'est pas un raffinement : une Tesla verrouille ses
+portes toute seule quand elle roule, et sans cet état le conducteur qui bouge
+sur son siège est pris pour un intrus. La voiture a klaxonné cinq fois sur son
+propriétaire en conduisant avant qu'on le comprenne. Les ripostes sont en outre
+limitées à une par dix minutes : si un détecteur se trompe encore, c'est un
+klaxon, pas cinq.
+
 **Le signal qui innocente vraiment est le déverrouillage par la clé.** Avec la
 clé téléphone, un Model X se déverrouille à l'approche du propriétaire, plusieurs
 secondes avant l'ouverture de la porte — et c'est à ce réveil que l'écran

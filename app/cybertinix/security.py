@@ -38,7 +38,7 @@ from sqlalchemy import select
 from . import oauth, prefs
 from .db import SessionLocal
 from .fleet import FleetClient
-from .models import Signal, VehicleAlert
+from .models import AlertState, Signal, VehicleAlert
 from .notify import send
 
 log = logging.getLogger(__name__)
@@ -92,23 +92,114 @@ async def ecran_verrouille(vin: str) -> None:
     La vérification est différée, et seule une absence de cause innocente
     déclenche l'alerte.
     """
+    # Un événement sur une voiture désarmée n'est jamais une intrusion, même si
+    # elle s'arme pendant le délai de vérification : on tranche tout de suite.
+    if not await _armee(vin):
+        return
     instant = _maintenant()
     tache = asyncio.create_task(_verifier(vin, instant))
     _verifications.add(tache)
     tache.add_done_callback(_verifications.discard)
 
 
-async def _innocente(vin: str, instant: float) -> str | None:
-    """Motif innocent expliquant un réveil, ou None."""
+async def _innocente(vin: str, instant: float, *, sauf: str = "") -> str | None:
+    """Motif innocent expliquant un réveil, ou None.
+
+    `sauf` retire un critère : le détecteur de porte forcée ne doit pas se
+    faire innocenter par l'ouverture de porte qu'il est en train d'examiner.
+    """
+    if not await _armee(vin):
+        return "véhicule non armé (en route, ou propriétaire à bord)"
     if _evenement_autour(vin, "deverrouillage", instant, FENETRE_DEVERROUILLAGE):
         return "déverrouillage par la clé"
-    if _evenement_autour(vin, "porte", instant, FENETRE_PORTE):
+    if sauf != "porte" and _evenement_autour(vin, "porte", instant, FENETRE_PORTE):
         return "ouverture de porte"
     if _evenement_autour(vin, "trappe", instant, FENETRE_TRAPPE):
         return "trappe de charge"
     if not await _verrouillee(vin):
         return "véhicule déverrouillé"
     return None
+
+
+# --- État d'armement ---------------------------------------------------------
+#
+# Une alarme de maison ne se déclenche pas quand on marche dans son salon :
+# elle n'est active que lorsqu'on est sorti et qu'on l'a armée. Même chose ici.
+# « Verrouillée » ne suffit pas — une Tesla verrouille ses portes toute seule
+# dès qu'elle roule, et le conducteur qui bouge sur son siège ressemble alors
+# à un intrus. La voiture a klaxonné cinq fois sur son propriétaire avant qu'on le
+# comprenne.
+#
+# La voiture est ARMÉE quand elle a été verrouillée à l'arrêt, siège vide :
+# le propriétaire est parti. Elle est DÉSARMÉE dès qu'elle est déverrouillée
+# par la clé, ou dès qu'elle roule. Aucun détecteur ne conclut à une intrusion
+# sur une voiture désarmée.
+
+CLE_ARMEE = "armee"
+
+
+async def _dernier(session, vin: str, champ: str) -> str | None:
+    return await session.scalar(
+        select(Signal.value)
+        .where(Signal.vin == vin, Signal.name == champ)
+        .order_by(Signal.id.desc())
+        .limit(1)
+    )
+
+
+def _vrai(brut: str | None) -> bool:
+    return brut is not None and brut.strip().lower() == "true"
+
+
+def _en_stationnement(brut: str | None) -> bool:
+    # Levier inconnu = on ne contredit pas l'armement ; seul un rapport
+    # explicite de conduite désarme.
+    if brut is None:
+        return True
+    return brut.strip('"').removeprefix("ShiftState").upper() in ("P", "PARK", "UNKNOWN", "INVALID", "SNA", "")
+
+
+async def armer(vin: str, armee: bool, motif: str) -> None:
+    async with SessionLocal() as session:
+        row = await session.scalar(
+            select(AlertState).where(AlertState.vin == vin, AlertState.key == CLE_ARMEE)
+        )
+        etat = "1" if armee else "0"
+        if row is None:
+            session.add(AlertState(vin=vin, key=CLE_ARMEE, state=etat))
+        elif row.state != etat:
+            row.state = etat
+        else:
+            return
+        await session.commit()
+    if armee:
+        _evenements[vin]["deverrouillage"].clear()
+    log.info("véhicule %s : %s", "ARMÉ" if armee else "désarmé", motif)
+
+
+async def evaluer_armement(vin: str) -> bool:
+    """Décide de l'armement d'après l'état courant, quand aucune transition ne
+    l'a fixé — typiquement après un redémarrage du serveur."""
+    async with SessionLocal() as session:
+        verrou = _vrai(await _dernier(session, vin, "Locked"))
+        gear = await _dernier(session, vin, "Gear")
+        siege = _vrai(await _dernier(session, vin, "DriverSeatOccupied"))
+    return verrou and _en_stationnement(gear) and not siege
+
+
+async def _armee(vin: str) -> bool:
+    async with SessionLocal() as session:
+        etat = await session.scalar(
+            select(AlertState.state).where(AlertState.vin == vin, AlertState.key == CLE_ARMEE)
+        )
+    if etat is None:
+        return await evaluer_armement(vin)
+    return etat == "1"
+
+
+async def armee_pour(vin: str) -> bool:
+    """État d'armement, pour l'interface."""
+    return await _armee(vin)
 
 
 async def _verrouillee(vin: str) -> bool:
@@ -142,6 +233,10 @@ async def siege_occupe(vin: str) -> None:
     délai de vérification uniquement pour laisser arriver un déverrouillage
     par la clé qui serait dans le même lot de messages.
     """
+    # Un événement sur une voiture désarmée n'est jamais une intrusion, même si
+    # elle s'arme pendant le délai de vérification : on tranche tout de suite.
+    if not await _armee(vin):
+        return
     instant = _maintenant()
     tache = asyncio.create_task(_verifier_siege(vin, instant))
     _verifications.add(tache)
@@ -150,11 +245,11 @@ async def siege_occupe(vin: str) -> None:
 
 async def _verifier_siege(vin: str, instant: float) -> None:
     await asyncio.sleep(DELAI_VERIFICATION)
-    if _evenement_autour(vin, "deverrouillage", instant, FENETRE_DEVERROUILLAGE):
+    motif = await _innocente(vin, instant)
+    if motif:
+        log.info("siège occupé expliqué par : %s — pas d'alerte", motif)
         return
-    if not await _verrouillee(vin):
-        return
-    await intrusion(vin, "siège conducteur occupé dans un habitacle verrouillé")
+    await intrusion(vin, "siège conducteur occupé dans un véhicule armé")
 
 
 async def depart_du_domicile(vin: str) -> None:
@@ -179,6 +274,8 @@ async def depart_du_domicile(vin: str) -> None:
 async def porte_ouverte(vin: str, portes: list[str]) -> None:
     """Une porte vient de s'ouvrir. Forcée si la voiture est toujours
     verrouillée une fois le délai écoulé."""
+    if not await _armee(vin):
+        return
     tache = asyncio.create_task(_verifier_porte(vin, portes))
     _verifications.add(tache)
     tache.add_done_callback(_verifications.discard)
@@ -187,11 +284,17 @@ async def porte_ouverte(vin: str, portes: list[str]) -> None:
 async def _verifier_porte(vin: str, portes: list[str]) -> None:
     instant = _maintenant()
     await asyncio.sleep(DELAI_VERIFICATION)
-    if _evenement_autour(vin, "deverrouillage", instant, FENETRE_DEVERROUILLAGE):
-        return  # la clé a ouvert : rien à signaler
-    if not await _verrouillee(vin):
-        return  # déverrouillée entre-temps : ouverture légitime
+    motif = await _innocente(vin, instant, sauf="porte")
+    if motif:
+        log.info("ouverture expliquée par : %s — pas d'alerte", motif)
+        return
     await intrusion(vin, f"ouverture forcée — {', '.join(portes)}")
+
+
+# Une riposte au plus par période. Si un détecteur se trompe encore, le
+# propriétaire subit un klaxon, pas cinq.
+COOLDOWN_RIPOSTE = 10 * 60.0
+_derniere_riposte: dict[str, float] = {}
 
 
 async def intrusion(vin: str, motif: str, *, exiger_verrou: bool = True) -> None:
@@ -214,6 +317,12 @@ async def intrusion(vin: str, motif: str, *, exiger_verrou: bool = True) -> None
         f"🚨 INTRUSION — {motif}.\n"
         "La voiture s'est réveillée sans ouverture légitime."
     )
+
+    depuis = _maintenant() - _derniere_riposte.get(vin, 0.0)
+    if depuis < COOLDOWN_RIPOSTE:
+        log.info("riposte retenue : la précédente date de %.0f s", depuis)
+        return
+    _derniere_riposte[vin] = _maintenant()
 
     if prefs.get("security_auto_sentry"):
         await _commande(vin, "set_sentry_mode", {"on": True},
