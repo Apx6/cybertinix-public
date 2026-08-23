@@ -243,6 +243,25 @@ async def siege_occupe(vin: str) -> None:
     tache.add_done_callback(_verifications.discard)
 
 
+async def ceinture_bouclee(vin: str, place: str) -> None:
+    """Une ceinture vient d'être bouclée. Même vérification que le siège."""
+    if not await _armee(vin):
+        return
+    instant = _maintenant()
+    tache = asyncio.create_task(_verifier_ceinture(vin, instant, place))
+    _verifications.add(tache)
+    tache.add_done_callback(_verifications.discard)
+
+
+async def _verifier_ceinture(vin: str, instant: float, place: str) -> None:
+    await asyncio.sleep(DELAI_VERIFICATION)
+    motif = await _innocente(vin, instant)
+    if motif:
+        log.info("ceinture bouclée expliquée par : %s — pas d'alerte", motif)
+        return
+    await intrusion(vin, f"ceinture {place} bouclée dans un véhicule armé")
+
+
 async def _verifier_siege(vin: str, instant: float) -> None:
     await asyncio.sleep(DELAI_VERIFICATION)
     motif = await _innocente(vin, instant)

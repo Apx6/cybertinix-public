@@ -29,6 +29,7 @@ from . import (
     prefs,
     status as status_module,
     telemetry,
+    trips,
     watchdog,
 )
 from .config import settings
@@ -360,6 +361,23 @@ async def clear_security_events(session: AsyncSession = Depends(get_session)) ->
     resultat = await session.execute(delete(VehicleAlert).where(VehicleAlert.name == "intrusion"))
     await session.commit()
     return {"supprimees": resultat.rowcount}
+
+
+@app.get("/trips")
+async def list_trips(
+    limit: int = Query(30, ge=1, le=200),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    """Historique des déplacements, le plus récent en tête ; un trajet sans
+    `arrivee` est en cours."""
+    return await trips.recents(session, limite=limit)
+
+
+@app.delete("/trips")
+async def clear_trips(session: AsyncSession = Depends(get_session)) -> dict:
+    supprimes = await trips.vider(session)
+    await session.commit()
+    return {"supprimes": supprimes}
 
 
 @app.get("/vehicles/{vin}/release-notes")

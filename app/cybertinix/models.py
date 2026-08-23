@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, DateTime, Float, Index, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -126,3 +126,31 @@ class ConnectivityEvent(Base):
     received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class Trip(Base):
+    """Un déplacement, du passage hors de P jusqu'au retour en P.
+
+    Les coordonnées et l'odomètre sont bruts (miles à la source), comme dans
+    `signals` ; la conversion se fait à l'affichage. Les rues sont résolues
+    une fois pour toutes à l'enregistrement : le géocodage est lent et tiers,
+    on ne le rejoue pas à chaque ouverture de la page.
+    """
+
+    __tablename__ = "trips"
+    __table_args__ = (Index("ix_trips_vin_started", "vin", "started_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    vin: Mapped[str] = mapped_column(String(17))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    start_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    start_lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    end_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    end_lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    start_street: Mapped[str] = mapped_column(Text, default="")
+    end_street: Mapped[str] = mapped_column(Text, default="")
+    start_odometer: Mapped[float | None] = mapped_column(Float, nullable=True)
+    end_odometer: Mapped[float | None] = mapped_column(Float, nullable=True)
+    start_soc: Mapped[float | None] = mapped_column(Float, nullable=True)
+    end_soc: Mapped[float | None] = mapped_column(Float, nullable=True)

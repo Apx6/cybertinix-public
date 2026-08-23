@@ -112,8 +112,16 @@ SURCHAUFFE_LIMITE = {
     "High": "haute (40 °C)",
 }
 
+CEINTURE = {
+    "Unknown": "inconnue",
+    "Unlatched": "détachée",
+    "Latched": "bouclée",
+    "Faulted": "en défaut",
+}
+
 # Champ -> (préfixe de l'énumération, table de traduction)
 ENUMS: dict[str, tuple[str, dict[str, str]]] = {
+    "PassengerSeatBelt": ("BuckleStatus", CEINTURE),
     "ClimateKeeperMode": ("ClimateKeeperModeState", CLIMAT_MAINTIEN),
     "CabinOverheatProtectionMode": ("CabinOverheatProtectionModeState", SURCHAUFFE),
     "CabinOverheatProtectionTemperatureLimit": ("ClimateOverheatProtectionTempLimit", SURCHAUFFE_LIMITE),

@@ -15,8 +15,8 @@ heure. Le principe retenu — une voiture endormie n'émet rien, mais une
 intrusion la réveille, et au réveil elle rapporte son état — ne coûte rien
 tant qu'il ne se passe rien. Voir « Sécurité sans sentinelle ».
 
-Autour de ce cœur : notifications Telegram (charge, seuils, trajets), une
-interface web pensée pour le téléphone, une supervision qui détecte les pannes
+Autour de ce cœur : notifications Telegram (charge, seuils, trajets), un
+historique des déplacements, une interface web pensée pour le téléphone, une supervision qui détecte les pannes
 silencieuses, et les planifications natives du véhicule.
 
 Le retour d'expérience de la mise en service — ce que la documentation Tesla
@@ -64,10 +64,11 @@ Model X ──websocket mTLS──> fleet-telemetry ──MQTT──> app ──
 |---|---|
 | `ingest.py` | Consomme MQTT, persiste, dédoublonne les alertes, déclenche les règles |
 | `rules.py` | Règles de notification : transitions, seuils verrouillés, trajets |
+| `trips.py` | Historique des déplacements (départ, arrivée, distance, batterie) |
 | `security.py` | Détection d'intrusion avec corrélation temporelle, ripostes |
 | `enums.py` | Traduction des énumérations Tesla (préfixées) et conversion miles → km |
 | `alerts.py` | Décodage des alertes véhicule, filtre sécurité sur le calculateur VCSEC |
-| `telemetry.py` | Configuration de télémétrie envoyée au véhicule (42 champs) |
+| `telemetry.py` | Configuration de télémétrie envoyée au véhicule (44 champs) |
 | `actions.py` | Liste blanche des commandes exposées à l'interface |
 | `prefs.py` | Réglages modifiables à chaud, le `.env` ne fournissant que les défauts |
 | `status.py` | État consolidé, valeurs live traduites, connectivité |
@@ -236,6 +237,11 @@ série (via les alertes `customer`), et **départ du domicile sans déverrouilla
 par la clé** — remorquage ou vol, signalé sans riposte (klaxonner une voiture
 sur une dépanneuse n'apporte rien). Le véhicule sait lui-même s'il est chez toi
 grâce au champ `LocatedAtHome`.
+
+Sixième signal, complémentaire : une **ceinture bouclée** dans un véhicule armé.
+Seul le siège conducteur a un capteur d'occupation, mais `DriverSeatBelt` et
+`PassengerSeatBelt` sont dans la télémétrie — personne ne boucle une ceinture
+depuis l'extérieur.
 
 **La voiture doit être armée pour qu'un détecteur conclue.** Armée = verrouillée
 à l'arrêt, siège vide — le propriétaire est parti. Désarmée = déverrouillée par

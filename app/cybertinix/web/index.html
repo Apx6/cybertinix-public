@@ -176,6 +176,9 @@ footer{color:var(--muted);font-size:.75rem;text-align:center;padding:1.5rem 0 0;
     <div class="carte" id="carte"><div class="vide">Aucune position connue.</div></div>
     <div class="sous" id="carte-rue" style="color:var(--ink-soft);font-size:.85rem;padding:.5rem .1rem"></div>
 
+    <h2>Déplacements</h2>
+    <div class="card" id="trajets"></div>
+
     <h2>Commandes</h2>
     <div id="actions-vehicule"></div>
 
@@ -572,6 +575,34 @@ async function chargerJournal() {
   }).join('');
 }
 
+async function chargerTrajets() {
+  const trajets = await api('GET', '/trips?limit=30');
+  if (!trajets.length) {
+    $('#trajets').innerHTML = ligne('Aucun déplacement', '—', '',
+      "L'historique se remplit au premier trajet : départ, arrivée, distance et batterie consommée.");
+    return;
+  }
+  const fmt = iso => new Date(iso).toLocaleString('fr-FR',{weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const lieu = (x, defaut) => x.rue || (x.lat != null ? `${x.lat.toFixed(4)}, ${x.lon.toFixed(4)}` : defaut);
+  const plans = x => x.lat != null ? ` <a href="https://maps.apple.com/?ll=${x.lat},${x.lon}" target="_blank" rel="noopener">↗</a>` : '';
+  $('#trajets').innerHTML = trajets.map(t => {
+    const enCours = !t.arrivee;
+    const titre = enCours ? `🚗 En cours depuis ${lieu(t.de, '?')}`
+                          : `${lieu(t.de, '?')}${plans(t.de)} → ${lieu(t.a, '?')}${plans(t.a)}`;
+    const valeur = enCours ? age(t.depart) : (t.distance != null ? `${t.distance} ${t.unite}` : '—');
+    const sous = [fmt(t.depart), dureeCourte(t.duree_s),
+                  t.conso_pct != null ? `${t.conso_pct > 0 ? '−' : '+'}${Math.abs(t.conso_pct)} %` : null]
+                 .filter(Boolean).join(' · ');
+    return ligne(titre, valeur, enCours ? 'warn' : '', sous);
+  }).join('') + `<div class="row"><div class="lab"><small>Un déplacement va du passage hors de P jusqu'au retour en P. Les manœuvres de moins d'une minute sont ignorées.</small></div>
+    <button class="ghost" id="vider-trajets">Vider</button></div>`;
+  $('#vider-trajets').onclick = async () => {
+    if (!confirm("Effacer l'historique des déplacements ?")) return;
+    await api('DELETE', '/trips');
+    flash('Historique vidé.'); chargerTrajets();
+  };
+}
+
 async function chargerHistorique() {
   const evts = await api('GET', '/security/events?limit=30');
   if (!evts.length) {
@@ -822,7 +853,7 @@ $('#pc-go').onclick = () => programmer($('#pc-go'), 'precondition-schedule', {
 
 async function tout() {
   for (const [nom, fn] of [['réglages',chargerReglages], ['état',chargerEtat],
-                           ['commandes',chargerActions], ['historique',chargerHistorique], ['journal',chargerJournal], ['système',chargerSysteme]]) {
+                           ['commandes',chargerActions], ['historique',chargerHistorique], ['trajets',chargerTrajets], ['journal',chargerJournal], ['système',chargerSysteme]]) {
     try { await fn(); } catch (e) { flash(`Chargement ${nom} : ${e.message}`.slice(0,200), 'warn'); }
   }
 }

@@ -24,7 +24,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import alerts, enums, prefs, security
+from . import alerts, enums, prefs, security, trips
 from .models import AlertState, Signal
 from .notify import send
 
@@ -348,6 +348,26 @@ async def siege_occupe(ctx: Context) -> str | None:
 
 
 @rule
+async def ceinture(ctx: Context) -> str | None:
+    """Une ceinture se boucle : quelqu'un est à bord. Vérifié dans security.py.
+
+    `DriverSeatBelt` est un booléen, `PassengerSeatBelt` une énumération —
+    dont Tesla prévient qu'elle reflète parfois la place centrale arrière.
+    Peu importe ici : n'importe quelle ceinture bouclée dans une voiture
+    armée dit la même chose.
+    """
+    if ctx.name == "DriverSeatBelt":
+        if ctx.value in (True, "true") and ctx.previous not in (True, "true"):
+            await security.ceinture_bouclee(ctx.vin, "conducteur")
+    elif ctx.name == "PassengerSeatBelt":
+        etat = enums.normalise(ctx.value, "BuckleStatus")
+        avant = enums.normalise(ctx.previous, "BuckleStatus")
+        if etat == "Latched" and avant != "Latched":
+            await security.ceinture_bouclee(ctx.vin, "passager")
+    return None
+
+
+@rule
 async def quitte_le_domicile(ctx: Context) -> str | None:
     """`LocatedAtHome` passe à faux : la voiture n'est plus chez toi."""
     if ctx.name != "LocatedAtHome":
@@ -483,14 +503,34 @@ async def pression_pneu(ctx: Context) -> str | None:
 
 
 @rule
+async def _enregistrer_trajet(ctx: Context) -> None:
+    """Historique des déplacements, tenu que les notifications de trajet
+    soient activées ou non. Même bornage que la notification : le levier."""
+    if ctx.name != "Gear":
+        return None
+    gear, avant = as_gear(ctx.value), as_gear(ctx.previous)
+    if gear is None or gear == avant:
+        return None
+
+    contexte = dict(
+        position=await ctx.latest("Location"),
+        odometre=await ctx.latest("Odometer"),
+        soc=await ctx.latest("Soc"),
+    )
+    if gear != "P" and (avant == "P" or avant is None):
+        await trips.demarrer(ctx.session, ctx.vin, **contexte)
+    elif gear == "P" and avant is not None:
+        await trips.terminer(ctx.session, ctx.vin, **contexte)
+    return None
+
+
+@rule
 async def trajet(ctx: Context) -> str | None:
     """Départ et arrivée, bornés par la position du levier.
 
     Plus fiable que la vitesse : un arrêt à un feu ramène la vitesse à zéro,
     alors que le passage en P marque une vraie fin de trajet.
     """
-    if not prefs.get("notif_seuils"):
-        return None
     if not prefs.get("notif_trajets"):
         return None
     if ctx.name != "Gear":

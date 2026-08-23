@@ -231,6 +231,8 @@ CHAMPS_VITRINE = (
     "SentryMode",
     "CenterDisplay",
     "DriverSeatOccupied",
+    "DriverSeatBelt",
+    "PassengerSeatBelt",
     "LocatedAtHome",
     "LocatedAtWork",
     "LocatedAtFavorite",

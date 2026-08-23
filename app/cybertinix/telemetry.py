@@ -39,6 +39,11 @@ DEFAULT_FIELDS: dict[str, dict] = {
     # Quelqu'un d'assis dans une voiture verrouillée : le signal d'intrusion
     # le plus direct, sans corrélation temporelle à faire.
     "DriverSeatOccupied": {"interval_seconds": 1},
+    # Seul le siège conducteur a un capteur d'occupation. Pour les autres
+    # places, les ceintures sont le seul indice : une ceinture qui se boucle
+    # dans une voiture armée, c'est quelqu'un à bord.
+    "DriverSeatBelt": {"interval_seconds": 1},
+    "PassengerSeatBelt": {"interval_seconds": 1},
     # La voiture sait elle-même si elle est chez toi. Sert de contexte : plus
     # stricte ailleurs, et un départ du domicile sans ta clé est un vol.
     "LocatedAtHome": {"interval_seconds": 1},
