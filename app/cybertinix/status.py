@@ -307,6 +307,7 @@ async def live(session: AsyncSession) -> dict:
         "unite_distance": unite,
         "connexion": await _connexion(session, vin),
         "armee": await security.armee_pour(vin),
+        "verrou": await security.etat_verrou(session, vin),
     }
 
 

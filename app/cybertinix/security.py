@@ -191,19 +191,35 @@ async def evaluer_armement(vin: str) -> bool:
     """Décide de l'armement d'après l'état courant, quand aucune transition ne
     l'a fixé — typiquement après un redémarrage du serveur."""
     async with SessionLocal() as session:
-        verrou = _vrai(await _dernier(session, vin, "Locked"))
+        verrou = (await etat_verrou(session, vin))["verrouille"]
         gear = await _dernier(session, vin, "Gear")
         siege = _vrai(await _dernier(session, vin, "DriverSeatOccupied"))
     return verrou and _en_stationnement(gear) and not siege
 
 
 async def _armee(vin: str) -> bool:
+    """État d'armement, avec rattrapage d'un cliquet resté en arrière.
+
+    L'armement est posé par transitions (`Locked`, `Gear`, `VehicleSpeed`).
+    Quand la transition n'arrive jamais, le cliquet reste faux indéfiniment :
+    le 23/08, la voiture s'est re-verrouillée sans émettre `Locked`, et la
+    surveillance est restée désarmée une demi-heure sur une voiture fermée,
+    sentinelle armée — aucun détecteur n'aurait conclu.
+
+    D'où le rattrapage : si l'état constaté (verrouillée, à l'arrêt, siège
+    vide) dit « armée » alors que le cliquet dit le contraire, l'état constaté
+    l'emporte. L'inverse n'est pas vrai — un cliquet armé n'est levé que par
+    une vraie transition, sinon un signal manquant désarmerait la voiture.
+    """
     async with SessionLocal() as session:
         etat = await session.scalar(
             select(AlertState.state).where(AlertState.vin == vin, AlertState.key == CLE_ARMEE)
         )
     if etat is None:
         return await evaluer_armement(vin)
+    if etat != "1" and await evaluer_armement(vin):
+        await armer(vin, True, "rattrapage : état constaté armé, cliquet en retard")
+        return True
     return etat == "1"
 
 
@@ -212,18 +228,59 @@ async def armee_pour(vin: str) -> bool:
     return await _armee(vin)
 
 
+async def _dernier_date(session, vin: str, champ: str):
+    """Dernière valeur d'un champ, avec sa date. (None, None) si jamais reçue."""
+    ligne = await session.execute(
+        select(Signal.value, Signal.received_at)
+        .where(Signal.vin == vin, Signal.name == champ)
+        .order_by(Signal.id.desc())
+        .limit(1)
+    )
+    row = ligne.first()
+    return (None, None) if row is None else (row[0], row[1])
+
+
+# La sentinelle ne s'arme que sur une voiture verrouillée : `Armed`, `Aware` et
+# `Panic` impliquent le verrou. `Idle` non — c'est la sentinelle activée mais
+# en veille, propriétaire à bord.
+_SENTINELLE_VERROUILLEE = ("Armed", "Aware", "Panic")
+
+
+async def etat_verrou(session, vin: str) -> dict:
+    """Verrouillage effectif, et non simple recopie du dernier `Locked`.
+
+    La voiture n'émet pas toujours son re-verrouillage. Constaté le 23/08 :
+    plus aucun `Locked` après le 12:38:41 (`false`, le propriétaire descend),
+    alors que la sentinelle s'est armée à 12:42:09 — donc sur une voiture
+    verrouillée. L'interface annonçait « Déverrouillé » une demi-heure durant,
+    et surtout la surveillance restait **désarmée** : plus aucun détecteur
+    n'aurait conclu. Un `SentryMode` verrouillant plus récent que le dernier
+    `Locked` fait donc foi.
+    """
+    brut, quand = await _dernier_date(session, vin, "Locked")
+    verrouille = brut is not None and brut.strip().lower() == "true"
+    deduit = False
+
+    sentinelle, quand_s = await _dernier_date(session, vin, "SentryMode")
+    if sentinelle is not None and quand_s is not None:
+        etat = sentinelle.strip('"').removeprefix("SentryModeState")
+        plus_recent = quand is None or quand_s > quand
+        if etat in _SENTINELLE_VERROUILLEE and plus_recent and not verrouille:
+            verrouille, deduit, quand = True, True, quand_s
+
+    return {
+        "verrouille": verrouille,
+        "deduit": deduit,
+        "quand": quand.isoformat() if quand is not None else None,
+    }
+
+
 async def _verrouillee(vin: str) -> bool:
-    """Dernier état de verrouillage connu. En cas de doute, on considère le
-    véhicule déverrouillé : une alerte manquée vaut mieux qu'un klaxon sur le
+    """Verrouillage effectif. En cas de doute, on considère le véhicule
+    déverrouillé : une alerte manquée vaut mieux qu'un klaxon sur le
     propriétaire."""
     async with SessionLocal() as session:
-        brut = await session.scalar(
-            select(Signal.value)
-            .where(Signal.vin == vin, Signal.name == "Locked")
-            .order_by(Signal.id.desc())
-            .limit(1)
-        )
-    return brut is not None and brut.strip().lower() == "true"
+        return (await etat_verrou(session, vin))["verrouille"]
 
 
 async def _corroboration(vin: str) -> str | None:
@@ -243,7 +300,7 @@ async def _corroboration(vin: str) -> str | None:
         portes = await _dernier(session, vin, "DoorState")
         if portes and "true" in portes.lower():
             return "un ouvrant est ouvert"
-        if not _vrai(await _dernier(session, vin, "Locked")):
+        if not (await etat_verrou(session, vin))["verrouille"]:
             return "véhicule déverrouillé"
     return None
 

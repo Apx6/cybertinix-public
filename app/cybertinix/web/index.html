@@ -27,7 +27,11 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;background:var(--ground);color:var(--ink);
-  font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;
+  /* iOS détache brièvement les éléments `fixed` pendant le rebond élastique
+     de fin de page : la barre du bas semble alors suivre le défilement.
+     Supprimer le rebond la garde ancrée. */
+  overscroll-behavior-y:none}
 .wrap{max-width:52rem;margin:0 auto;padding:0 1rem;
   padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom) + 1.5rem)}
 
@@ -416,11 +420,11 @@ const ouverts = v => (v && typeof v === 'object')
 
 // --- État ------------------------------------------------------------------
 
-let POSITION = null, CONNEXION = null, ARMEE = false;
+let POSITION = null, CONNEXION = null, ARMEE = false, VERROU = null;
 
 async function chargerEtat() {
   const d = await api('GET','/live');
-  VIN = d.vin; CHAMPS = d.champs || {}; POSITION = d.position; CONNEXION = d.connexion; ARMEE = !!d.armee;
+  VIN = d.vin; CHAMPS = d.champs || {}; POSITION = d.position; CONNEXION = d.connexion; ARMEE = !!d.armee; VERROU = d.verrou || null;
   $('#vin').textContent = d.vin || 'aucun véhicule';
   if (val('VehicleName')) $('#nom').textContent = val('VehicleName');
 
@@ -450,20 +454,20 @@ async function chargerEtat() {
 
 function dessinerVoiture() {
   const o = ouverts(val('DoorState'));
-  const verrou = val('Locked');
+  // Le verrouillage vient du serveur, qui sait le déduire de la sentinelle
+  // quand la voiture n'a pas signalé son re-verrouillage.
+  const verrou = VERROU ? VERROU.verrouille : val('Locked');
   // Portes Falcon ouvertes sur l'illustration dès que la voiture est
   // déverrouillée ou qu'un ouvrant l'est : l'image dit « accessible ».
   const ouverte = o.length > 0 || verrou === false;
   $('#img-ouvert').classList.toggle('cache', !ouverte);
   $('#img-ferme').classList.toggle('cache', ouverte);
 
+  // Pastille discrète, et seulement quand la voiture est fermée : l'image aux
+  // portes ouvertes et la tuile Verrouillage disent déjà le contraire, un gros
+  // cadenas ouvert par-dessus l'illustration n'ajoutait que du bruit.
   const badge = $('#badge-verrou');
-  if (verrou === undefined) badge.hidden = true;
-  else {
-    badge.hidden = false;
-    badge.textContent = verrou ? '🔒' : '🔓';
-    badge.classList.toggle('ouvert', !verrou);
-  }
+  badge.hidden = verrou !== true;
 
   const vitreOuverte = Object.keys(FENETRES).some(k => {
     const l = CHAMPS[k]?.libelle;
@@ -514,9 +518,10 @@ function dessinerTuiles(soc, recent) {
   if (recent) t.push(tuile('Dernière mise à jour', age(recent),
     new Date(recent).toLocaleString('fr-FR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})));
 
-  const verrou = val('Locked');
-  if (verrou !== undefined)
-    t.push(tuile('Verrouillage', verrou?'Verrouillé':'Déverrouillé', '', verrou?'good':'warn'));
+  const verrou = VERROU ? VERROU.verrouille : val('Locked');
+  if (verrou !== undefined && verrou !== null)
+    t.push(tuile('Verrouillage', verrou?'Verrouillé':'Déverrouillé',
+      VERROU?.deduit ? 'déduit de la sentinelle armée' : '', verrou?'good':'warn'));
 
   const fen = Object.entries(FENETRES)
     .map(([k,nom]) => [nom, CHAMPS[k]?.libelle])

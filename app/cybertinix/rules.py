@@ -334,6 +334,13 @@ async def armement(ctx: Context) -> str | None:
     elif ctx.name == "VehicleSpeed":
         if (as_number(ctx.value) or 0) > 0:
             await security.armer(ctx.vin, False, "véhicule en mouvement")
+    elif ctx.name == "SentryMode":
+        # La sentinelle qui s'arme prouve un verrouillage que la voiture n'a
+        # pas forcément signalé par `Locked`. Sans ce rattrapage, la
+        # surveillance reste désarmée sur une voiture pourtant fermée.
+        etat = enums.normalise(ctx.value, "SentryModeState").strip('"')
+        if etat in ("Armed", "Aware", "Panic") and await security.evaluer_armement(ctx.vin):
+            await security.armer(ctx.vin, True, "sentinelle armée (verrouillage déduit)")
     return None
 
 
