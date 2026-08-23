@@ -109,8 +109,8 @@ WEB = Path(__file__).parent / "web"
 app.mount("/static", StaticFiles(directory=WEB), name="static")
 
 
-@app.get("/", response_class=FileResponse, include_in_schema=False)
-async def interface() -> FileResponse:
+@app.get("/", include_in_schema=False)
+async def interface() -> HTMLResponse:
     """L'interface. Protégée comme le reste par le middleware de jeton.
 
     `no-cache` : un raccourci sur l'écran d'accueil iPhone rouvre sinon la
@@ -118,18 +118,27 @@ async def interface() -> FileResponse:
     déploiement. Le navigateur revalide donc à chaque ouverture ; combiné au
     bandeau de mise à jour, on ne reste jamais sur une version périmée.
     """
-    return FileResponse(
-        WEB / "index.html",
-        media_type="text/html; charset=utf-8",
-        headers={"Cache-Control": "no-cache"},
-    )
+    # La version est injectée dans la page : au chargement, la page compare
+    # sa propre version à celle du serveur et se recharge toute seule sous
+    # une URL différente (`/?v=…`) — le seul moyen fiable de passer outre le
+    # cache du raccourci iPhone, qui ignore parfois `no-cache`.
+    html = (WEB / "index.html").read_text(encoding="utf-8").replace("__BUILD_ID__", settings.build_id)
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/version")
 async def version() -> dict:
     """Identifiant de build. La page le compare au sien pour proposer une
     mise à jour ; un script peut s'en servir pour vérifier un déploiement."""
-    return {"version": settings.build_id}
+    return {"version": settings.build_id, "empreinte": _empreinte()}
+
+
+def _empreinte() -> str:
+    """Empreinte du code embarqué, calculée à la construction de l'image."""
+    try:
+        return Path("/srv/EMPREINTE").read_text().strip()
+    except OSError:
+        return "dev"
 
 
 NOM_APP = "CyberTinix"

@@ -85,7 +85,17 @@ def _evenement_autour(vin: str, evenement: str, instant: float, fenetre: float) 
 
 
 async def ecran_verrouille(vin: str) -> None:
-    """L'écran central vient de s'allumer en mode verrouillé.
+    """L'écran central rapporte l'état « verrouillé ».
+
+    ⚠️ Ce signal ne prouve rien à lui seul, contrairement à ce qu'on a cru au
+    départ. `DisplayStateLock` n'est pas « l'écran vient de s'allumer » : c'est
+    l'état de repos de l'écran d'une voiture verrouillée. La voiture le rejoue
+    donc dans l'instantané qu'elle pousse à **chaque reconnexion**, portes
+    closes et siège vide. Le 23/08, ses trois seules apparitions en base
+    tombaient à la seconde exacte d'une reconnexion, et ont déclenché une
+    fausse intrusion — suivie d'une riposte qui a allumé la sentinelle, soit
+    exactement la dépense que ce projet existe pour éviter.
+    D'où l'exigence de corroboration dans `_verifier`.
 
     On ne conclut pas tout de suite : une ouverture de porte légitime arrive
     parfois quelques centaines de millisecondes *après* le réveil de l'écran.
@@ -216,13 +226,41 @@ async def _verrouillee(vin: str) -> bool:
     return brut is not None and brut.strip().lower() == "true"
 
 
+async def _corroboration(vin: str) -> str | None:
+    """Anomalie physique constatée dans l'habitacle, ou None si tout est en ordre.
+
+    L'état de l'écran ne prouve rien à lui seul (voir `ecran_verrouille`). On
+    ne conclut que si quelque chose d'autre ne va pas : un ouvrant, une place
+    occupée, un verrou tombé. Un intrus réel produit forcément l'un des trois.
+    """
+    async with SessionLocal() as session:
+        if _vrai(await _dernier(session, vin, "DriverSeatOccupied")):
+            return "siège conducteur occupé"
+        if _vrai(await _dernier(session, vin, "DriverSeatBelt")):
+            return "ceinture conducteur bouclée"
+        passager = await _dernier(session, vin, "PassengerSeatBelt")
+        if passager and "Latched" in passager and "Unlatched" not in passager:
+            return "ceinture passager bouclée"
+        portes = await _dernier(session, vin, "DoorState")
+        if portes and "true" in portes.lower():
+            return "un ouvrant est ouvert"
+        if not _vrai(await _dernier(session, vin, "Locked")):
+            return "véhicule déverrouillé"
+    return None
+
+
 async def _verifier(vin: str, instant: float) -> None:
     await asyncio.sleep(DELAI_VERIFICATION)
     motif = await _innocente(vin, instant)
     if motif:
         log.info("réveil d'écran expliqué par : %s — pas d'alerte", motif)
         return
-    await intrusion(vin, "écran allumé dans un habitacle verrouillé")
+    # L'écran seul ne suffit pas : il faut qu'autre chose cloche réellement.
+    corrobore = await _corroboration(vin)
+    if corrobore is None:
+        log.info("écran en mode verrouillé mais habitacle intact — pas d'alerte")
+        return
+    await intrusion(vin, f"écran allumé dans un habitacle verrouillé ({corrobore})")
 
 
 async def siege_occupe(vin: str) -> None:

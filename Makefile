@@ -56,3 +56,7 @@ rebuild:
 
 publish:
 	./scripts/06-publish.sh
+
+# Empreinte du code local, à comparer avec celle affichée dans Système.
+empreinte:
+	@cd app && find cybertinix -type f ! -name '*.pyc' ! -name '.DS_Store' | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256 | cut -c1-8

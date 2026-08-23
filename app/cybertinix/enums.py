@@ -140,6 +140,9 @@ ENUMS: dict[str, tuple[str, dict[str, str]]] = {
 # Champs dont la valeur brute est exprimée en miles.
 DISTANCES = {"Odometer", "EstBatteryRange"}
 
+# Vitesse, en miles par heure à la source.
+VITESSES = {"VehicleSpeed"}
+
 # Champs exprimés en degrés Celsius.
 TEMPERATURES = {"InsideTemp", "OutsideTemp", "HvacLeftTemperatureRequest",
                 "HvacRightTemperatureRequest"}
@@ -178,6 +181,12 @@ def libelle(champ: str, valeur: Any, unite_distance: str = "km") -> str | None:
         if converti is None:
             return None
         return f"{converti:,.0f} {unite_distance}".replace(",", " ")
+
+    if champ in VITESSES:
+        converti = distance(valeur, unite_distance)
+        if converti is None:
+            return None
+        return f"{converti:.0f} {unite_distance}/h"
 
     if champ in TEMPERATURES:
         try:

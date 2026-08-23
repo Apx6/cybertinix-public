@@ -231,13 +231,22 @@ dans les 4 s, la trappe de charge dans les 5 s. L'alerte est différée de 3 s
 pour laisser le temps à ces explications d'arriver. Logique reprise de
 SentryGuard après lecture de son code (`security.py`).
 
-Cinq détecteurs : **siège conducteur occupé** dans un habitacle verrouillé (le
+Six détecteurs : **siège conducteur occupé** dans un habitacle verrouillé (le
 plus direct — pas d'explication innocente), écran allumé dans un habitacle
 verrouillé, porte ouverte sur véhicule toujours verrouillé, alarme antivol de
 série (via les alertes `customer`), et **départ du domicile sans déverrouillage
 par la clé** — remorquage ou vol, signalé sans riposte (klaxonner une voiture
 sur une dépanneuse n'apporte rien). Le véhicule sait lui-même s'il est chez toi
 grâce au champ `LocatedAtHome`.
+
+Un détecteur mérite une mise en garde : `CenterDisplay = Lock` **n'est pas**
+« l'écran vient de s'allumer », contrairement à ce qu'on a cru en concevant le
+projet. C'est l'état de repos de l'écran d'une voiture verrouillée, que le
+véhicule rejoue dans l'instantané poussé à chaque reconnexion — portes closes
+et siège vide. Il exige donc une **corroboration** : un ouvrant ouvert, une
+place occupée, une ceinture bouclée ou un verrou tombé. Gater sur la
+reconnexion elle-même serait une erreur : une vraie intrusion réveille aussi
+la voiture, et arrive donc elle aussi dans un instantané.
 
 Sixième signal, complémentaire : une **ceinture bouclée** dans un véhicule armé.
 Seul le siège conducteur a un capteur d'occupation, mais `DriverSeatBelt` et

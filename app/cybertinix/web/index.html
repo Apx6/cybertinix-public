@@ -322,9 +322,22 @@ let VIN = null, SEUIL_PNEU = 2.5, CHAMPS = {};
 // c'est qu'un déploiement a eu lieu : on le dit au lieu de laisser tourner
 // une page périmée — un raccourci iPhone ne recharge jamais de lui-même.
 let VERSION = null;
+// Version de la page elle-même, injectée par le serveur au moment de la servir.
+const PAGE_VERSION = '__BUILD_ID__';
 async function verifierVersion() {
   let version;
   try { ({version} = await api('GET', '/version')); } catch { return; }  // réessayé au prochain tour
+  // La page chargée n'est pas celle du serveur : on la recharge sous une URL
+  // neuve, que le cache du raccourci iPhone ne connaît pas. Le paramètre sert
+  // aussi de garde-fou : s'il est déjà là, on se contente du bandeau.
+  if (PAGE_VERSION !== '__BUILD' + '_ID__' && version !== PAGE_VERSION) {
+    if (new URLSearchParams(location.search).get('v') !== version) {
+      location.replace('/?v=' + encodeURIComponent(version));
+      return;
+    }
+    $('#maj').hidden = false;
+    return;
+  }
   if (VERSION === null) {
     VERSION = version;
     // La page vient de se charger : si la version diffère de celle vue au
@@ -466,7 +479,11 @@ function dessinerVoiture() {
   if (val('DriverSeatOccupied') === true) bits.push('🧍 siège occupé');
   if (o.length) bits.push('Ouvert : ' + o.join(', '));
   if (vitreOuverte) bits.push('une vitre n’est pas fermée');
-  if (lib('Gear')) bits.push(lib('Gear'));
+  const enRoute = lib('Gear') && lib('Gear') !== 'stationnement';
+  if (enRoute) {
+    const v = num(val('VehicleSpeed'));
+    bits.unshift(`🚗 en route${Number.isFinite(v) ? ` · ${lib('VehicleSpeed') ?? v}` : ''}`);
+  } else if (lib('Gear')) bits.push(lib('Gear'));
   $('#vitrine-sous').textContent = bits.join(' · ');
 }
 
@@ -819,7 +836,7 @@ async function chargerSysteme() {
   const [s, ver] = await Promise.all([api('GET','/status'), api('GET','/version').catch(() => null)]);
   const v = s.vehicule || {}, t = v.telemetrie || {}, l = [];
   if (ver?.version) l.push(ligne('Version de l’application', ver.version, '',
-    'Identifiant horodaté du dernier déploiement.'));
+    `Identifiant horodaté du dernier déploiement · empreinte du code <code>${ver.empreinte ?? '?'}</code> (à comparer avec <code>make empreinte</code> en local)`));
   l.push(ligne('Clé virtuelle', v.cle_appairee?'appairée':'ABSENTE', v.cle_appairee?'good':'bad'));
   l.push(ligne('Télémétrie', t.synced?`synchronisée · ${t.champs?.length??0} champs`:'non adoptée',
     t.synced?'good':'warn', t.synced?'':'La voiture adoptera la configuration à son prochain réveil.'));
