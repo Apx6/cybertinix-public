@@ -313,10 +313,14 @@ async def live(session: AsyncSession) -> dict:
 async def _connexion(session: AsyncSession, vin: str) -> dict | None:
     """Éveillée ou endormie, d'après le dernier événement de connectivité.
 
-    C'est la seule source fiable : une voiture éveillée mais immobile n'émet
-    aucun signal nouveau, donc l'âge du dernier signal ne dit rien de son
-    sommeil. Tesla documente d'ailleurs ces événements comme « proxy de
-    l'état en ligne du véhicule », fiable à 99 %.
+    L'âge du dernier signal ne peut pas *prouver le sommeil* — une voiture
+    éveillée mais immobile n'émet rien. Il peut en revanche prouver l'éveil :
+    une voiture déconnectée n'émet pas. Un signal postérieur au dernier
+    événement `DISCONNECTED` l'emporte donc sur celui-ci, sans quoi l'interface
+    annonce « endormie » sur une voiture qui roule à 103 km/h.
+
+    Tesla documente ces événements comme « proxy de l'état en ligne du
+    véhicule », fiable à 99 % — le pour cent restant est exactement ce cas.
     """
     evt = await session.scalar(
         select(ConnectivityEvent)
@@ -326,8 +330,20 @@ async def _connexion(session: AsyncSession, vin: str) -> dict | None:
     )
     if evt is None:
         return None
+
+    eveillee = evt.status.upper() == "CONNECTED"
+    if not eveillee:
+        dernier = await session.scalar(
+            select(Signal.received_at)
+            .where(Signal.vin == vin)
+            .order_by(Signal.id.desc())
+            .limit(1)
+        )
+        if dernier is not None and dernier > evt.received_at:
+            eveillee = True
+
     return {
-        "eveillee": evt.status.upper() == "CONNECTED",
+        "eveillee": eveillee,
         "statut": evt.status,
         "depuis": evt.received_at.isoformat(),
     }

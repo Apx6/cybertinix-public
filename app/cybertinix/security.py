@@ -35,7 +35,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select
 
-from . import oauth, prefs
+from . import enums, oauth, prefs
 from .db import SessionLocal
 from .fleet import FleetClient
 from .models import AlertState, Signal, VehicleAlert
@@ -236,10 +236,9 @@ async def _corroboration(vin: str) -> str | None:
     async with SessionLocal() as session:
         if _vrai(await _dernier(session, vin, "DriverSeatOccupied")):
             return "siège conducteur occupé"
-        if _vrai(await _dernier(session, vin, "DriverSeatBelt")):
+        if enums.ceinture(await _dernier(session, vin, "DriverSeatBelt")):
             return "ceinture conducteur bouclée"
-        passager = await _dernier(session, vin, "PassengerSeatBelt")
-        if passager and "Latched" in passager and "Unlatched" not in passager:
+        if enums.ceinture(await _dernier(session, vin, "PassengerSeatBelt")):
             return "ceinture passager bouclée"
         portes = await _dernier(session, vin, "DoorState")
         if portes and "true" in portes.lower():

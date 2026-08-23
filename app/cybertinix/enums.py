@@ -112,16 +112,57 @@ SURCHAUFFE_LIMITE = {
     "High": "haute (40 °C)",
 }
 
+# Ceintures. Le proto Tesla déclare `DriverSeatBelt` et `PassengerSeatBelt`
+# comme des booléens, et l'énumération `BuckleStatus` ne compte que quatre
+# valeurs (0 inconnue, 1 détachée, 2 bouclée, 3 en défaut). Le véhicule, lui,
+# envoie `4` sur `PassengerSeatBelt` — y compris voiture vide et verrouillée,
+# constaté le 23/08. La documentation ne décrit donc pas ce qu'émet la voiture.
+#
+# Conséquence assumée : on ne conclut que sur ce qui est vérifié. `4` est
+# connu comme « pas de ceinture bouclée » (relevé sur une voiture vide) mais
+# son encodage exact reste inconnu ; toute autre valeur est journalisée sans
+# rien déclencher, le temps d'observer ce que donne un passager réel.
 CEINTURE = {
     "Unknown": "inconnue",
     "Unlatched": "détachée",
     "Latched": "bouclée",
     "Faulted": "en défaut",
+    "0": "inconnue",
+    "1": "détachée",
+    "2": "bouclée",
+    "3": "en défaut",
+    "4": "aucune bouclée",
+    "true": "bouclée",
+    "True": "bouclée",
+    "false": "détachée",
+    "False": "détachée",
 }
+
+# Valeurs dont on sait qu'elles signifient « bouclée », et celles dont on sait
+# qu'elles signifient le contraire. Tout le reste est un inconnu déclaré.
+CEINTURE_BOUCLEE = {"Latched", "2", "true", "True"}
+CEINTURE_LIBRE = {"Unknown", "Unlatched", "Faulted", "0", "1", "3", "4", "false", "False"}
+
+
+def ceinture(valeur: Any) -> bool | None:
+    """True bouclée, False libre, None si l'encodage n'est pas reconnu.
+
+    Le None est délibéré : il vaut mieux ne rien conclure que déclencher une
+    alarme sur une valeur qu'on n'a jamais observée.
+    """
+    if isinstance(valeur, bool):
+        return valeur
+    court = normalise(valeur, "BuckleStatus").strip('"')
+    if court in CEINTURE_BOUCLEE:
+        return True
+    if court in CEINTURE_LIBRE:
+        return False
+    return None
 
 # Champ -> (préfixe de l'énumération, table de traduction)
 ENUMS: dict[str, tuple[str, dict[str, str]]] = {
     "PassengerSeatBelt": ("BuckleStatus", CEINTURE),
+    "DriverSeatBelt": ("BuckleStatus", CEINTURE),
     "ClimateKeeperMode": ("ClimateKeeperModeState", CLIMAT_MAINTIEN),
     "CabinOverheatProtectionMode": ("CabinOverheatProtectionModeState", SURCHAUFFE),
     "CabinOverheatProtectionTemperatureLimit": ("ClimateOverheatProtectionTempLimit", SURCHAUFFE_LIMITE),
@@ -173,7 +214,7 @@ def libelle(champ: str, valeur: Any, unite_distance: str = "km") -> str | None:
     """Chaîne prête à afficher, ou None si la valeur brute suffit."""
     if champ in ENUMS:
         prefixe, table = ENUMS[champ]
-        court = normalise(valeur, prefixe)
+        court = normalise(valeur, prefixe).strip('"')
         return table.get(court, court)
 
     if champ in DISTANCES:

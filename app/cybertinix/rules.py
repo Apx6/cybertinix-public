@@ -356,14 +356,19 @@ async def ceinture(ctx: Context) -> str | None:
     Peu importe ici : n'importe quelle ceinture bouclée dans une voiture
     armée dit la même chose.
     """
-    if ctx.name == "DriverSeatBelt":
-        if ctx.value in (True, "true") and ctx.previous not in (True, "true"):
-            await security.ceinture_bouclee(ctx.vin, "conducteur")
-    elif ctx.name == "PassengerSeatBelt":
-        etat = enums.normalise(ctx.value, "BuckleStatus")
-        avant = enums.normalise(ctx.previous, "BuckleStatus")
-        if etat == "Latched" and avant != "Latched":
-            await security.ceinture_bouclee(ctx.vin, "passager")
+    if ctx.name not in ("DriverSeatBelt", "PassengerSeatBelt"):
+        return None
+
+    etat = enums.ceinture(ctx.value)
+    if etat is None:
+        # Encodage jamais observé : on le journalise pour l'apprendre, et on se
+        # garde d'en tirer une alarme. Voir la note dans `enums.CEINTURE`.
+        log.warning("valeur de %s non reconnue : %r — aucune conclusion tirée",
+                    ctx.name, ctx.value)
+        return None
+    if etat and enums.ceinture(ctx.previous) is not True:
+        place = "conducteur" if ctx.name == "DriverSeatBelt" else "passager"
+        await security.ceinture_bouclee(ctx.vin, place)
     return None
 
 

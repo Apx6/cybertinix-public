@@ -476,7 +476,6 @@ function dessinerVoiture() {
   if (val('LocatedAtHome') === true) bits.push('🏠 à la maison');
   else if (val('LocatedAtWork') === true) bits.push('🏢 au travail');
   else if (val('LocatedAtFavorite') === true) bits.push('⭐ lieu favori');
-  if (val('DriverSeatOccupied') === true) bits.push('🧍 siège occupé');
   if (o.length) bits.push('Ouvert : ' + o.join(', '));
   if (vitreOuverte) bits.push('une vitre n’est pas fermée');
   const enRoute = lib('Gear') && lib('Gear') !== 'stationnement';
@@ -543,6 +542,20 @@ function dessinerTuiles(soc, recent) {
   if (val('DoorState') !== undefined)
     t.push(tuile('Portes et coffres', o.length ? `${o.length} ouvert${o.length>1?'s':''}` : 'Tout fermé',
       o.join(', '), o.length?'warn':'good'));
+
+  // Occupation. Seul le siège conducteur a un capteur ; pour les autres
+  // places, la ceinture bouclée est le seul indice dont dispose la voiture.
+  const assis = val('DriverSeatOccupied');
+  const ceintures = [
+    lib('DriverSeatBelt') === 'bouclée' ? 'conducteur' : null,
+    lib('PassengerSeatBelt') === 'bouclée' ? 'passager' : null,
+  ].filter(Boolean);
+  if (assis !== undefined || ceintures.length) {
+    const sous = ceintures.length
+      ? `ceinture ${ceintures.join(' et ')} bouclée${ceintures.length>1?'s':''}`
+      : 'aucune ceinture bouclée';
+    t.push(tuile('À bord', assis === true ? 'Conducteur' : (assis === false ? 'Personne' : '—'), sous));
+  }
 
   $('#tuiles').innerHTML = t.join('') || '<div class="tuile"><div class="t">Aucune donnée</div><div class="v">—</div></div>';
 }
