@@ -484,7 +484,7 @@ function dessinerVoiture() {
 
   const bits = [];
   if (CONNEXION) bits.push(CONNEXION.eveillee ? '🟢 éveillée' : '🟠 endormie');
-  bits.push(ARMEE ? '🛡️ armée' : '🛡️ désarmée');
+  bits.push(ARMEE ? '🛡️ sous surveillance' : '🛡️ hors surveillance');
   if (val('LocatedAtHome') === true) bits.push('🏠 à la maison');
   else if (val('LocatedAtWork') === true) bits.push('🏢 au travail');
   else if (val('LocatedAtFavorite') === true) bits.push('⭐ lieu favori');
@@ -580,8 +580,10 @@ function dessinerSecurite() {
   // Armée = verrouillée à l'arrêt, siège vide : le propriétaire est parti et
   // les détecteurs sont en service. Désarmée = en route ou quelqu'un à bord.
   t.push(tuile('Surveillance',
-    active ? `Sentinelle ${sent}` : (ARMEE ? 'Armée' : 'Désarmée'),
-    active ? '~1 % de batterie par heure' : (ARMEE ? 'passive, sans consommation' : 'en route ou propriétaire à bord'),
+    active ? `Sentinelle ${sent}` : (ARMEE ? 'Active' : 'Inactive'),
+    active ? 'sentinelle Tesla · ~1 % de batterie par heure'
+           : (ARMEE ? 'veille CyberTinix, sans sentinelle ni consommation'
+                    : 'en route ou propriétaire à bord'),
     sent === 'en alerte' || sent === 'panique' ? 'bad' : (active ? 'warn' : (ARMEE ? 'good' : ''))));
   const verrou = VERROU ? VERROU.verrouille : val('Locked');
   if (verrou !== undefined && verrou !== null)
