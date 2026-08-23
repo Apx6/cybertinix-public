@@ -6,6 +6,7 @@ import aiomqtt
 from sqlalchemy import select
 
 from .config import settings
+from . import file_attente
 from .db import SessionLocal
 from .models import ConnectivityEvent, Signal, VehicleAlert
 from .rules import evaluate
@@ -115,6 +116,10 @@ async def _handle(topic: str, raw: bytes) -> None:
                 )
             )
             await session.commit()
+            if str(data.get("Status", "")).lower() == "connected":
+                # La voiture vient de se réveiller : c'est le moment d'envoyer
+                # les commandes qui l'attendaient.
+                asyncio.create_task(file_attente.rejouer(vin))
 
         elif kind == "errors" and rest:
             # Erreurs remontées par le client télémétrie du véhicule : signe

@@ -571,7 +571,7 @@ async function chargerJournal() {
       `${e.securite ? '🛡️ ' : ''}${e.libelle}`,
       quand.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}),
       e.securite ? 'bad' : (e.niveau === 'alerte' ? 'warn' : ''),
-      `${sous} · <code style="font-size:.7rem;opacity:.7">${e.nom}</code>`);
+      `${sous} · <code style="font-size:.7rem;opacity:.7">${e.nom}</code>${e.note ? `<br>${e.note}` : ''}${e.connue ? '' : ' · <em>non documentée</em>'}`);
   }).join('');
 }
 
@@ -762,8 +762,8 @@ async function lancer(action, btn) {
 
   btn.disabled = true; btn.classList.add('busy');
   try {
-    await api('POST', `/vehicles/${VIN}/actions/${action.cle}`, {parametre});
-    flash(`${action.libelle} — envoyé.`);
+    const r = await api('POST', `/vehicles/${VIN}/actions/${action.cle}`, {parametre});
+    if (r.en_file) flash(r.message, 'warn'); else flash(`${action.libelle} — envoyé.`);
   } catch (e) {
     // Les erreurs métier de Tesla sont plus parlantes que toute reformulation.
     flash(String(e.message).slice(0,220), 'err');

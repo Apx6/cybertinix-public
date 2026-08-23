@@ -76,6 +76,44 @@ def _humaniser(code: str) -> str:
     return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", code).lower()
 
 
+# Alertes rencontrées sur le véhicule, expliquées au fur et à mesure. Le
+# libellé Tesla est un identifiant de développeur (« notify geofence ») ; on
+# dit ici ce qu'il veut dire et si cela mérite autre chose qu'une ligne de
+# journal. Les codes absents gardent leur libellé automatique.
+#   libelle  : ce que la voiture signale, en français
+#   interet  : "info" (journal seulement), "utile" (pourrait notifier),
+#              "securite" (traité par security.py)
+CATALOGUE: dict[str, dict] = {
+    "TAS_a230_notifyGeofence": {
+        "libelle": "Suspension relevée automatiquement (lieu mémorisé)",
+        "interet": "info",
+        "note": "TAS = suspension pneumatique. Se déclenche à l'arrivée sur un lieu où la garde au sol a déjà été relevée.",
+    },
+    "UI_a002_DoorOpen": {
+        "libelle": "Porte ouverte en roulant",
+        "interet": "utile",
+        "note": "Avertissement à l'écran : un ouvrant n'est pas fermé alors que le véhicule roule.",
+    },
+    "DI_a172_accelPressedInNP": {
+        "libelle": "Accélérateur enfoncé au point mort ou en P",
+        "interet": "info",
+    },
+    "VCSEC_a221_TPMSSoftWarning": {
+        "libelle": "Pression d'un pneu légèrement basse",
+        "interet": "utile",
+        "note": "Déjà couvert par la règle de seuil TPMS, qui nomme la roue.",
+    },
+    "VCSEC_a222_TPMSHardWarning": {
+        "libelle": "Pression d'un pneu très basse",
+        "interet": "utile",
+    },
+    "APP_w207_autosteerUnavailable": {
+        "libelle": "Autosteer indisponible",
+        "interet": "info",
+    },
+}
+
+
 def decoder(alerte: VehicleAlert) -> dict:
     """Structure une alerte brute pour l'affichage."""
     nom = alerte.name
@@ -109,7 +147,10 @@ def decoder(alerte: VehicleAlert) -> dict:
         "calculateur": calculateur,
         "systeme": _CALCULATEURS.get(calculateur, calculateur),
         "niveau": niveau,
-        "libelle": _humaniser(code) if code else nom,
+        "libelle": CATALOGUE.get(nom, {}).get("libelle") or (_humaniser(code) if code else nom),
+        "interet": CATALOGUE.get(nom, {}).get("interet"),
+        "note": CATALOGUE.get(nom, {}).get("note"),
+        "connue": nom in CATALOGUE,
         "securite": est_securite(nom),
         "audiences": payload.get("Audiences") or [],
         "debut": debut,

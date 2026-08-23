@@ -65,6 +65,7 @@ Model X ──websocket mTLS──> fleet-telemetry ──MQTT──> app ──
 | `ingest.py` | Consomme MQTT, persiste, dédoublonne les alertes, déclenche les règles |
 | `rules.py` | Règles de notification : transitions, seuils verrouillés, trajets |
 | `trips.py` | Historique des déplacements (départ, arrivée, distance, batterie) |
+| `file_attente.py` | Commande sur voiture endormie : réveil, réessai, puis file rejouée à la reconnexion |
 | `security.py` | Détection d'intrusion avec corrélation temporelle, ripostes |
 | `enums.py` | Traduction des énumérations Tesla (préfixées) et conversion miles → km |
 | `alerts.py` | Décodage des alertes véhicule, filtre sécurité sur le calculateur VCSEC |

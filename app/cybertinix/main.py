@@ -24,6 +24,7 @@ from . import (
     auth,
     charging,
     commands,
+    file_attente,
     ingest,
     oauth,
     prefs,
@@ -471,16 +472,41 @@ async def run_action(
 
     token = await oauth.valid_access_token(session, SUBJECT)
     client = FleetClient(token)
-    envoyer = client.command_direct if action.direct else client.command
     try:
-        reponse = await envoyer(vin, action.commande, corps)
+        reponse = await file_attente.envoyer(client, vin, action, corps)
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(
-            exc.response.status_code,
-            f"{action.libelle} refusée : {exc.response.text[:300]}",
-        ) from exc
+        if not file_attente.indisponible(exc):
+            raise HTTPException(
+                exc.response.status_code,
+                f"{action.libelle} refusée : {exc.response.text[:300]}",
+            ) from exc
+        # Voiture endormie : on la réveille, et si elle ne répond pas, la
+        # commande attend sa prochaine connexion plutôt que d'être perdue.
+        try:
+            reponse = await file_attente.reveiller_et_reessayer(client, vin, action, corps)
+        except httpx.HTTPStatusError as exc2:
+            raise HTTPException(
+                exc2.response.status_code,
+                f"{action.libelle} refusée : {exc2.response.text[:300]}",
+            ) from exc2
+        if reponse is None:
+            parametre = (body or ActionRequest()).parametre
+            n = await file_attente.mettre_en_file(session, vin, cle, parametre)
+            return {"action": cle, "libelle": action.libelle, "envoye": corps,
+                    "en_file": True, "position": n,
+                    "message": f"{action.libelle} : la voiture ne répond pas, commande mise en file — envoyée à son prochain réveil."}
 
     return {"action": cle, "libelle": action.libelle, "envoye": corps, "reponse": reponse}
+
+
+@app.get("/vehicles/{vin}/file")
+async def file_en_attente(vin: str, session: AsyncSession = Depends(get_session)) -> list[dict]:
+    return await file_attente.en_attente(session, vin)
+
+
+@app.delete("/vehicles/{vin}/file")
+async def vider_file(vin: str, session: AsyncSession = Depends(get_session)) -> dict:
+    return {"supprimees": await file_attente.vider(session, vin)}
 
 
 # --- Planification de charge -------------------------------------------------
