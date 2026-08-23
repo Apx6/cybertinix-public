@@ -28,11 +28,17 @@
 [hidden]{display:none!important}
 body{margin:0;background:var(--ground);color:var(--ink);
   font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;
-  /* iOS détache brièvement les éléments `fixed` pendant le rebond élastique
-     de fin de page : la barre du bas semble alors suivre le défilement.
-     Supprimer le rebond la garde ancrée. */
-  overscroll-behavior-y:none}
-.wrap{max-width:52rem;margin:0 auto;padding:0 1rem;
+  overscroll-behavior:none}
+
+/* Coquille d'application : le document lui-même ne défile pas, seul `.wrap`
+   défile à l'intérieur. iOS ne repeint pas les éléments `position:fixed`
+   pendant l'inertie et le rebond du défilement de page — la barre du bas
+   restait figée à sa position d'avant, donc paraissait glisser au milieu du
+   contenu. Sortie du conteneur qui défile, elle ne peut plus décrocher. */
+html{height:100%}
+body{height:100%;overflow:hidden}
+.wrap{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  max-width:52rem;margin:0 auto;padding:0 1rem;
   padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom) + 1.5rem)}
 
 header{position:sticky;top:0;z-index:10;background:var(--ground);
@@ -364,7 +370,7 @@ function ouvrir(nom) {
   document.querySelectorAll('nav button').forEach(b =>
     b.setAttribute('aria-current', String(b.dataset.tab === nom)));
   try { localStorage.setItem('onglet', nom); } catch {}
-  window.scrollTo(0,0);
+  document.querySelector('.wrap').scrollTop = 0;
   if (nom === 'vehicule') dessinerCarte();
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => ouvrir(b.dataset.tab));
@@ -575,9 +581,10 @@ function dessinerSecurite() {
     active ? `Sentinelle ${sent}` : (ARMEE ? 'Armée' : 'Désarmée'),
     active ? '~1 % de batterie par heure' : (ARMEE ? 'passive, sans consommation' : 'en route ou propriétaire à bord'),
     sent === 'en alerte' || sent === 'panique' ? 'bad' : (active ? 'warn' : (ARMEE ? 'good' : ''))));
-  const verrou = val('Locked');
-  if (verrou !== undefined)
-    t.push(tuile('Véhicule', verrou ? 'Verrouillé' : 'Déverrouillé', '', verrou ? 'good' : 'warn'));
+  const verrou = VERROU ? VERROU.verrouille : val('Locked');
+  if (verrou !== undefined && verrou !== null)
+    t.push(tuile('Véhicule', verrou ? 'Verrouillé' : 'Déverrouillé',
+      VERROU?.deduit ? 'déduit de la sentinelle armée' : '', verrou ? 'good' : 'warn'));
   if (lib('CenterDisplay')) t.push(tuile('Écran central', lib('CenterDisplay'),
     lib('CenterDisplay') === 'verrouillé' ? 'allumé, habitacle fermé' : ''));
   const home = val('LocatedAtHome'), work = val('LocatedAtWork'), fav = val('LocatedAtFavorite');
