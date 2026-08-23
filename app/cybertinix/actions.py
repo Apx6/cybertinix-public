@@ -30,6 +30,9 @@ class Action:
     # Envoyée à l'API Fleet directement, sans le proxy signant. Pour les seules
     # commandes que le SDK ne connaît pas et que l'API accepte en REST.
     direct: bool = False
+    # Rangée dans le groupe. Les boutons d'une même rangée vont ensemble —
+    # ouvrir/fermer la trappe, par exemple — et ne se mélangent pas aux autres.
+    ligne: int = 0
 
 
 ACTIONS: tuple[Action, ...] = (
@@ -130,10 +133,15 @@ ACTIONS: tuple[Action, ...] = (
     # --- Charge ---
     Action("charge_start", "Démarrer la charge", "charge_start", "charge", "⚡"),
     Action("charge_stop", "Arrêter la charge", "charge_stop", "charge", "🛑"),
-    Action("trappe_ouvrir", "Ouvrir la trappe", "charge_port_door_open", "charge", "🔌"),
-    Action("trappe_fermer", "Fermer la trappe", "charge_port_door_close", "charge", "🔻"),
+    Action("trappe_ouvrir", "Ouvrir la trappe", "charge_port_door_open", "charge", "🔌", ligne=1),
+    Action("trappe_fermer", "Fermer la trappe", "charge_port_door_close", "charge", "🔻", ligne=1),
     Action(
-        "limite_charge", "Limite de charge", "set_charge_limit", "charge", "🎚️",
+        "limite_80", "Recommandé (80 %)", "set_charge_limit", "charge", "✅",
+        corps={"percent": 80}, ligne=2,
+        aide="Limite de charge quotidienne recommandée par Tesla.",
+    ),
+    Action(
+        "limite_charge", "Limite de charge", "set_charge_limit", "charge", "🎚️", ligne=2,
         parametre={
             "nom": "percent",
             "type": "int",
@@ -258,6 +266,7 @@ def describe() -> list[dict]:
             "aide": a.aide,
             "parametre": a.parametre,
             "direct": a.direct,
+            "ligne": a.ligne,
         }
         for a in ACTIONS
     ]
