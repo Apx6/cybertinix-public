@@ -319,11 +319,20 @@ let VIN = null, SEUIL_PNEU = 2.5, CHAMPS = {};
 // une page périmée — un raccourci iPhone ne recharge jamais de lui-même.
 let VERSION = null;
 async function verifierVersion() {
-  try {
-    const {version} = await api('GET', '/version');
-    if (VERSION === null) { VERSION = version; return; }
-    if (version !== VERSION) $('#maj').hidden = false;
-  } catch {}
+  let version;
+  try { ({version} = await api('GET', '/version')); } catch { return; }  // réessayé au prochain tour
+  if (VERSION === null) {
+    VERSION = version;
+    // La page vient de se charger : si la version diffère de celle vue au
+    // dernier lancement, c'est qu'un déploiement a eu lieu entre-temps et que
+    // la réouverture l'a appliqué d'elle-même. On le dit, sinon l'absence de
+    // bandeau ressemble à une mise à jour qui n'a pas eu lieu.
+    let precedente = null;
+    try { precedente = localStorage.getItem('version'); localStorage.setItem('version', version); } catch {}
+    if (precedente && precedente !== version) flash(`Mise à jour appliquée — version ${version}`);
+    return;
+  }
+  if (version !== VERSION) $('#maj').hidden = false;
 }
 $('#maj-go').onclick = () => location.reload();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) verifierVersion(); });
