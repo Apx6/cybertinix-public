@@ -20,7 +20,7 @@ from cryptography import x509
 from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import enums, geocode, oauth, prefs, security
+from . import enums, geocode, oauth, prefs, reconcile, security
 from .config import settings
 from .fleet import FleetClient
 from .models import ConnectivityEvent, OAuthToken, Signal
@@ -274,6 +274,12 @@ async def live(session: AsyncSession) -> dict:
     vin = await known_vin(session)
     if vin is None:
         return {"vin": None, "champs": {}, "position": None}
+
+    # Le verrouillage cesse parfois d'être émis pendant des heures. Plutôt que
+    # d'afficher une valeur périmée avec aplomb, on la redemande au véhicule —
+    # au plus une fois par cinq minutes, et sans jamais le réveiller.
+    if await reconcile.verrou_perime(session, vin):
+        await reconcile.rafraichir_verrou(session, vin)
 
     unite = prefs.get("distance_unit")
     champs: dict[str, dict] = {}

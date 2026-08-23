@@ -463,9 +463,11 @@ function dessinerVoiture() {
   // Le verrouillage vient du serveur, qui sait le déduire de la sentinelle
   // quand la voiture n'a pas signalé son re-verrouillage.
   const verrou = VERROU ? VERROU.verrouille : val('Locked');
-  // Portes Falcon ouvertes sur l'illustration dès que la voiture est
-  // déverrouillée ou qu'un ouvrant l'est : l'image dit « accessible ».
-  const ouverte = o.length > 0 || verrou === false;
+  // L'illustration montre des portes : elle ne s'ouvre donc que si un ouvrant
+  // l'est vraiment. La faire dépendre du verrou donnait une image de Falcon
+  // grandes ouvertes juste à côté d'une tuile « Tout fermé ». Le verrouillage
+  // se lit sur la pastille et sur sa propre tuile.
+  const ouverte = o.length > 0;
   $('#img-ouvert').classList.toggle('cache', !ouverte);
   $('#img-ferme').classList.toggle('cache', ouverte);
 
