@@ -63,6 +63,7 @@ async def demarrer(session: AsyncSession, vin: str, *, position: Any, odometre: 
     ouvert = await en_cours(session, vin)
     if ouvert is not None:
         ouvert.ended_at = ouvert.started_at
+        await session.commit()
         log.warning("trajet %s resté ouvert, clos sans arrivée", ouvert.id)
 
     lat, lon = _coords(position)
@@ -75,7 +76,12 @@ async def demarrer(session: AsyncSession, vin: str, *, position: Any, odometre: 
         start_soc=_nombre(soc),
     )
     session.add(trajet)
-    await session.flush()
+    # Validation explicite : l'ingestion valide sa transaction *avant*
+    # d'appeler les règles, donc rien de ce qu'elles ajoutent ne survivrait à
+    # la fermeture de la session. C'est ce qui a rendu l'historique muet du
+    # 23 au 25/08 — le code paraissait juste et ne levait aucune erreur.
+    # Même convention que `Context.remember` : qui écrit, valide.
+    await session.commit()
     return trajet
 
 
@@ -95,8 +101,10 @@ async def terminer(session: AsyncSession, vin: str, *, position: Any, odometre: 
     duree = (trajet.ended_at - trajet.started_at).total_seconds()
     if km is not None and km < DISTANCE_MIN_KM and duree < 60:
         await session.delete(trajet)
+        await session.commit()
         log.info("manœuvre de %.2f km ignorée", km)
         return None
+    await session.commit()
     return trajet
 
 

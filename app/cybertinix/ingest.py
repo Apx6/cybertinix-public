@@ -93,6 +93,12 @@ async def _handle(topic: str, raw: bytes) -> None:
             session.add(Signal(vin=vin, name=field, value=payload))
             await session.commit()
             await evaluate(session, vin, field, payload, previous)
+            # Les règles reçoivent une session déjà validée : ce qu'elles y
+            # ajoutent serait perdu à la fermeture. Chacune valide donc ses
+            # propres écritures, et ce commit final rattrape celles qui
+            # l'oublieraient — un oubli ne lève aucune erreur, il fait juste
+            # disparaître les données en silence.
+            await session.commit()
 
         elif kind == "alerts" and rest and rest[-1] == "current":
             # Le véhicule renvoie son historique d'alertes à chaque reconnexion.
