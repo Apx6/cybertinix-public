@@ -356,26 +356,23 @@ async def siege_occupe(ctx: Context) -> str | None:
 
 @rule
 async def ceinture(ctx: Context) -> str | None:
-    """Une ceinture se boucle : quelqu'un est à bord. Vérifié dans security.py.
+    """Observation des ceintures, sans conclusion propre.
 
-    `DriverSeatBelt` est un booléen, `PassengerSeatBelt` une énumération —
-    dont Tesla prévient qu'elle reflète parfois la place centrale arrière.
-    Peu importe ici : n'importe quelle ceinture bouclée dans une voiture
-    armée dit la même chose.
+    Une ceinture bouclée **ne déclenche pas d'alerte** : ce n'est pas un
+    critère décisif — un intrus ne s'attache pas, et `PassengerSeatBelt`
+    émet une valeur (`4`) que la documentation Tesla ne décrit pas. Choix du
+    propriétaire, le 25/08 : la détection reste fondée sur l'occupation du
+    siège, seul capteur qui dise vraiment que quelqu'un est à bord.
+
+    Les ceintures gardent un rôle d'appui dans `security._corroboration` :
+    elles ne concluent jamais seules, elles confirment un autre signal. On
+    continue donc à les recevoir et à journaliser les encodages inconnus.
     """
     if ctx.name not in ("DriverSeatBelt", "PassengerSeatBelt"):
         return None
-
-    etat = enums.ceinture(ctx.value)
-    if etat is None:
-        # Encodage jamais observé : on le journalise pour l'apprendre, et on se
-        # garde d'en tirer une alarme. Voir la note dans `enums.CEINTURE`.
+    if enums.ceinture(ctx.value) is None:
         log.warning("valeur de %s non reconnue : %r — aucune conclusion tirée",
                     ctx.name, ctx.value)
-        return None
-    if etat and enums.ceinture(ctx.previous) is not True:
-        place = "conducteur" if ctx.name == "DriverSeatBelt" else "passager"
-        await security.ceinture_bouclee(ctx.vin, place)
     return None
 
 

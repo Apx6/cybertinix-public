@@ -231,7 +231,7 @@ dans les 4 s, la trappe de charge dans les 5 s. L'alerte est différée de 3 s
 pour laisser le temps à ces explications d'arriver. Logique reprise de
 SentryGuard après lecture de son code (`security.py`).
 
-Six détecteurs : **siège conducteur occupé** dans un habitacle verrouillé (le
+Cinq détecteurs : **siège conducteur occupé** dans un habitacle verrouillé (le
 plus direct — pas d'explication innocente), écran allumé dans un habitacle
 verrouillé, porte ouverte sur véhicule toujours verrouillé, alarme antivol de
 série (via les alertes `customer`), et **départ du domicile sans déverrouillage
@@ -248,10 +248,11 @@ place occupée, une ceinture bouclée ou un verrou tombé. Gater sur la
 reconnexion elle-même serait une erreur : une vraie intrusion réveille aussi
 la voiture, et arrive donc elle aussi dans un instantané.
 
-Sixième signal, complémentaire : une **ceinture bouclée** dans un véhicule armé.
-Seul le siège conducteur a un capteur d'occupation, mais `DriverSeatBelt` et
-`PassengerSeatBelt` sont dans la télémétrie — personne ne boucle une ceinture
-depuis l'extérieur.
+Les **ceintures** (`DriverSeatBelt`, `PassengerSeatBelt`) sont reçues mais ne
+déclenchent jamais seules : un intrus ne s'attache pas, et le champ passager
+émet une valeur que la documentation Tesla ne décrit pas. Elles servent
+uniquement de corroboration au détecteur d'écran. L'occupation du siège
+conducteur reste le seul capteur qui dise vraiment que quelqu'un est à bord.
 
 **La voiture doit être armée pour qu'un détecteur conclue.** Armée = verrouillée
 à l'arrêt, siège vide — le propriétaire est parti. Désarmée = déverrouillée par

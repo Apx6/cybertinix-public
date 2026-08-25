@@ -186,10 +186,58 @@ async def _vehicule(session: AsyncSession) -> dict:
         out["erreurs_telemetrie"] = erreurs
         # Tesla conserve un historique : sans filtre sur l'âge, une panne
         # corrigée resterait signalée indéfiniment.
-        out["erreurs_recentes"] = recent_errors(erreurs)
+        recentes = recent_errors(erreurs)
+        out["erreurs_recentes"] = recentes
+        out["erreurs_detail"] = decrire_erreurs(recentes)
     except Exception as exc:  # noqa: BLE001
         out["erreur_erreurs"] = str(exc)
 
+    return out
+
+
+# Les erreurs de flux sont écrites pour un ingénieur Tesla, pas pour le
+# propriétaire. On dit ce qu'elles signifient et si elles demandent une action.
+# Presque toutes viennent du **véhicule**, pas du serveur : au réveil, sa liaison
+# cellulaire n'est pas toujours prête quand il compose l'adresse. Il réessaie
+# seul quelques secondes plus tard.
+_ERREURS = (
+    ("network is unreachable",
+     "Le véhicule n'avait pas encore de réseau au réveil",
+     "Sans gravité : il se reconnecte seul quelques secondes après. Rien à faire."),
+    ("connection refused",
+     "Le serveur a refusé la connexion",
+     "À surveiller : si cela se répète, le serveur de télémétrie était arrêté. Vérifier avec make check."),
+    ("i/o timeout",
+     "Le véhicule n'a pas obtenu de réponse à temps",
+     "Sans gravité si isolé : liaison cellulaire faible, parking souterrain."),
+    ("EOF",
+     "Connexion coupée en cours d'échange",
+     "Sans gravité si isolé : la voiture s'est rendormie ou a perdu le réseau."),
+    ("bad certificate",
+     "Le véhicule a refusé notre certificat",
+     "À traiter : le certificat TLS est expiré ou incomplet. Relancer make certs."),
+)
+
+
+def expliquer_erreur(texte: str) -> tuple[str, str]:
+    """Libellé et conduite à tenir pour une erreur de flux."""
+    for motif, libelle, conseil in _ERREURS:
+        if motif.lower() in texte.lower():
+            return libelle, conseil
+    return "Erreur de flux non répertoriée", "À examiner si elle se répète."
+
+
+def decrire_erreurs(erreurs: list) -> list[dict]:
+    out = []
+    for erreur in erreurs:
+        texte = str(erreur.get("error", "")) if isinstance(erreur, dict) else str(erreur)
+        libelle, conseil = expliquer_erreur(texte)
+        out.append({
+            "quand": erreur.get("created_at") if isinstance(erreur, dict) else None,
+            "libelle": libelle,
+            "conseil": conseil,
+            "brut": texte.strip('"'),
+        })
     return out
 
 

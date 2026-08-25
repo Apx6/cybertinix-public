@@ -556,19 +556,13 @@ function dessinerTuiles(soc, recent) {
     t.push(tuile('Portes et coffres', o.length ? `${o.length} ouvert${o.length>1?'s':''}` : 'Tout fermé',
       o.join(', '), o.length?'warn':'good'));
 
-  // Occupation. Seul le siège conducteur a un capteur ; pour les autres
-  // places, la ceinture bouclée est le seul indice dont dispose la voiture.
+  // Occupation des sièges. Le Model X n'expose qu'un seul capteur d'occupation,
+  // celui du conducteur — on le dit plutôt que de laisser croire que le silence
+  // des autres places signifie qu'elles sont vides.
   const assis = val('DriverSeatOccupied');
-  const ceintures = [
-    lib('DriverSeatBelt') === 'bouclée' ? 'conducteur' : null,
-    lib('PassengerSeatBelt') === 'bouclée' ? 'passager' : null,
-  ].filter(Boolean);
-  if (assis !== undefined || ceintures.length) {
-    const sous = ceintures.length
-      ? `ceinture ${ceintures.join(' et ')} bouclée${ceintures.length>1?'s':''}`
-      : 'aucune ceinture bouclée';
-    t.push(tuile('À bord', assis === true ? 'Conducteur' : (assis === false ? 'Personne' : '—'), sous));
-  }
+  if (assis !== undefined)
+    t.push(tuile('Siège conducteur', assis === true ? 'Occupé' : 'Libre',
+      'seule place dotée d’un capteur d’occupation', assis === true ? 'warn' : 'good'));
 
   $('#tuiles').innerHTML = t.join('') || '<div class="tuile"><div class="t">Aucune donnée</div><div class="v">—</div></div>';
 }
@@ -879,8 +873,20 @@ async function chargerSysteme() {
       s.jeton.refresh_jours_restants_estimes<14?'warn':'', 'Le jeton de rafraîchissement expire à 3 mois.'));
   l.push(ligne('Coût du mois', `${s.cout.dollars_estimes} $`, 'good',
     `${s.cout.signaux_ce_mois} signaux · remise de 10 $ appliquée`));
+  // Les erreurs de flux étaient comptées sans être consultables : un chiffre
+  // rouge sans moyen de savoir ce qu'il recouvre inquiète sans informer.
+  const detail = v.erreurs_detail || [];
   const err = (v.erreurs_recentes||[]).length;
-  if (err) l.push(ligne('Erreurs télémétrie', `${err} sur 24 h`, 'bad'));
+  if (err) {
+    l.push(ligne('Erreurs télémétrie', `${err} sur 24 h`, 'bad',
+      'Presque toujours côté véhicule, au réveil. Détail ci-dessous.'));
+    detail.forEach(e => {
+      const quand = e.quand ? new Date(e.quand).toLocaleString('fr-FR',
+        {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+      l.push(ligne(e.libelle, quand, '',
+        `${e.conseil}<br><code style="font-size:.7rem;opacity:.6">${e.brut}</code>`));
+    });
+  }
   $('#systeme').innerHTML = l.join('');
 }
 

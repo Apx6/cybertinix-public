@@ -289,6 +289,10 @@ async def _corroboration(vin: str) -> str | None:
     L'état de l'écran ne prouve rien à lui seul (voir `ecran_verrouille`). On
     ne conclut que si quelque chose d'autre ne va pas : un ouvrant, une place
     occupée, un verrou tombé. Un intrus réel produit forcément l'un des trois.
+
+    Les ceintures figurent ici, et **ici seulement** : elles confirment un
+    signal, elles n'en déclenchent jamais. Ce n'est pas un critère décisif —
+    un intrus ne s'attache pas.
     """
     async with SessionLocal() as session:
         if _vrai(await _dernier(session, vin, "DriverSeatOccupied")):
@@ -335,25 +339,6 @@ async def siege_occupe(vin: str) -> None:
     tache = asyncio.create_task(_verifier_siege(vin, instant))
     _verifications.add(tache)
     tache.add_done_callback(_verifications.discard)
-
-
-async def ceinture_bouclee(vin: str, place: str) -> None:
-    """Une ceinture vient d'être bouclée. Même vérification que le siège."""
-    if not await _armee(vin):
-        return
-    instant = _maintenant()
-    tache = asyncio.create_task(_verifier_ceinture(vin, instant, place))
-    _verifications.add(tache)
-    tache.add_done_callback(_verifications.discard)
-
-
-async def _verifier_ceinture(vin: str, instant: float, place: str) -> None:
-    await asyncio.sleep(DELAI_VERIFICATION)
-    motif = await _innocente(vin, instant)
-    if motif:
-        log.info("ceinture bouclée expliquée par : %s — pas d'alerte", motif)
-        return
-    await intrusion(vin, f"ceinture {place} bouclée dans un véhicule armé")
 
 
 async def _verifier_siege(vin: str, instant: float) -> None:
