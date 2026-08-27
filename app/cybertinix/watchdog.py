@@ -127,12 +127,30 @@ async def _controles(session: AsyncSession) -> list[str]:
 
         # Seules les erreurs récentes comptent : Tesla conserve un historique,
         # et une panne déjà corrigée y reste visible longtemps.
-        recentes = vehicule.get("erreurs_recentes") or []
-        if await _latch(session, "erreurs_telemetrie", "presentes" if recentes else "ok"):
-            if recentes:
+        #
+        # Et parmi les récentes, seules celles qui demandent quelque chose.
+        # La plus fréquente — le véhicule sans réseau au réveil — se résout
+        # d'elle-même en quelques secondes : alerter dessus, c'était crier au
+        # loup et apprendre à ignorer le chien de garde. On alerte donc sur
+        # les erreurs graves, ou sur un volume anormal d'erreurs bénignes.
+        detail = vehicule.get("erreurs_detail") or []
+        graves = [e for e in detail if e.get("gravite") == "action"]
+        benignes = [e for e in detail if e.get("gravite") != "action"]
+        trop = len(benignes) >= status.SEUIL_ERREURS_BENIGNES
+
+        etat_err = "graves" if graves else ("volume" if trop else "ok")
+        if await _latch(session, "erreurs_telemetrie", etat_err):
+            if graves:
+                e = graves[0]
                 alertes.append(
-                    f"⚠️ Le véhicule remonte {len(recentes)} erreur(s) de télémétrie "
-                    f"dans les dernières 24 h : {recentes[0].get('error_name', 'inconnue')}"
+                    f"⚠️ Télémétrie — {e['libelle']}. {e['conseil']}"
+                    + (f" ({len(graves)} au total sur 24 h)" if len(graves) > 1 else "")
+                )
+            elif trop:
+                alertes.append(
+                    f"⚠️ Télémétrie — {len(benignes)} erreurs de connexion en 24 h, "
+                    "au-delà de l'ordinaire. Chacune se résout seule, mais le volume "
+                    "est inhabituel : vérifier make check et la couverture réseau."
                 )
 
     # --- Certificat ---

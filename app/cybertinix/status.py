@@ -200,42 +200,58 @@ async def _vehicule(session: AsyncSession) -> dict:
 # Presque toutes viennent du **véhicule**, pas du serveur : au réveil, sa liaison
 # cellulaire n'est pas toujours prête quand il compose l'adresse. Il réessaie
 # seul quelques secondes plus tard.
+# Dernier champ : la gravité. « info » = le véhicule s'en remet seul, rien à
+# faire ; « action » = quelque chose est cassé de notre côté. Seules les
+# secondes méritent de réveiller quelqu'un.
 _ERREURS = (
     ("network is unreachable",
      "Le véhicule n'avait pas encore de réseau au réveil",
-     "Sans gravité : il se reconnecte seul quelques secondes après. Rien à faire."),
+     "Sans gravité : il se reconnecte seul quelques secondes après. Rien à faire.",
+     "info"),
     ("connection refused",
      "Le serveur a refusé la connexion",
-     "À surveiller : si cela se répète, le serveur de télémétrie était arrêté. Vérifier avec make check."),
+     "À traiter : le serveur de télémétrie était arrêté. Vérifier avec make check.",
+     "action"),
     ("i/o timeout",
      "Le véhicule n'a pas obtenu de réponse à temps",
-     "Sans gravité si isolé : liaison cellulaire faible, parking souterrain."),
+     "Sans gravité si isolé : liaison cellulaire faible, parking souterrain.",
+     "info"),
     ("EOF",
      "Connexion coupée en cours d'échange",
-     "Sans gravité si isolé : la voiture s'est rendormie ou a perdu le réseau."),
+     "Sans gravité si isolé : la voiture s'est rendormie ou a perdu le réseau.",
+     "info"),
     ("bad certificate",
      "Le véhicule a refusé notre certificat",
-     "À traiter : le certificat TLS est expiré ou incomplet. Relancer make certs."),
+     "À traiter : le certificat TLS est expiré ou incomplet. Relancer make certs.",
+     "action"),
 )
 
+# Au-delà, même des erreurs bénignes cessent de l'être : une voiture qui
+# n'arrive pas à se connecter vingt fois en une journée a un vrai problème,
+# ou c'est notre serveur qui vacille.
+SEUIL_ERREURS_BENIGNES = 12
 
-def expliquer_erreur(texte: str) -> tuple[str, str]:
-    """Libellé et conduite à tenir pour une erreur de flux."""
-    for motif, libelle, conseil in _ERREURS:
+
+def expliquer_erreur(texte: str) -> tuple[str, str, str]:
+    """Libellé, conduite à tenir et gravité d'une erreur de flux."""
+    for motif, libelle, conseil, gravite in _ERREURS:
         if motif.lower() in texte.lower():
-            return libelle, conseil
-    return "Erreur de flux non répertoriée", "À examiner si elle se répète."
+            return libelle, conseil, gravite
+    # Une erreur inconnue n'est pas présumée bénigne : on la signale, c'est
+    # précisément celle sur laquelle on n'a pas encore d'expérience.
+    return "Erreur de flux non répertoriée", "À examiner : signature jamais rencontrée.", "action"
 
 
 def decrire_erreurs(erreurs: list) -> list[dict]:
     out = []
     for erreur in erreurs:
         texte = str(erreur.get("error", "")) if isinstance(erreur, dict) else str(erreur)
-        libelle, conseil = expliquer_erreur(texte)
+        libelle, conseil, gravite = expliquer_erreur(texte)
         out.append({
             "quand": erreur.get("created_at") if isinstance(erreur, dict) else None,
             "libelle": libelle,
             "conseil": conseil,
+            "gravite": gravite,
             "brut": texte.strip('"'),
         })
     return out
