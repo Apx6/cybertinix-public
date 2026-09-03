@@ -216,6 +216,14 @@ _ERREURS = (
      "Le véhicule n'a pas obtenu de réponse à temps",
      "Sans gravité si isolé : liaison cellulaire faible, parking souterrain.",
      "info"),
+    # Même famille que le précédent, formulée par la bibliothèque Go du client
+    # Tesla : le délai imparti à la connexion a expiré. Rencontrée le 02/09 à
+    # 08:47, trois fois, encadrée par une coupure réseau ; la voiture s'est
+    # reconnectée seule à 08:49:33 sans intervention.
+    ("context deadline exceeded",
+     "Délai de connexion dépassé côté véhicule",
+     "Sans gravité si isolé : la liaison n'a pas abouti dans le temps imparti, la voiture réessaie seule.",
+     "info"),
     ("EOF",
      "Connexion coupée en cours d'échange",
      "Sans gravité si isolé : la voiture s'est rendormie ou a perdu le réseau.",

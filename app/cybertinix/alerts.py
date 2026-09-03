@@ -111,6 +111,21 @@ CATALOGUE: dict[str, dict] = {
         "libelle": "Autosteer indisponible",
         "interet": "info",
     },
+    "APP_w269_autopilotLimited": {
+        "libelle": "Autopilot en fonctionnalités réduites",
+        "interet": "info",
+        "note": "Accompagne presque toujours une caméra gênée : pluie, saleté, contre-jour.",
+    },
+    "APP_w304_lssCamBlockedStatus": {
+        "libelle": "Caméra d'aide au maintien de voie obstruée",
+        "interet": "info",
+        "note": "LSS = Lane Sensing System. Se lève seul une fois la caméra dégagée ; un nettoyage du pare-brise suffit si cela persiste.",
+    },
+    "DI_a175_crsNotAvailable": {
+        "libelle": "Régulateur de vitesse indisponible",
+        "interet": "info",
+        "note": "Conséquence habituelle d'une caméra obstruée ou d'un Autopilot réduit, signalée par le calculateur moteur.",
+    },
 }
 
 

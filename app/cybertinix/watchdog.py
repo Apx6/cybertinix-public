@@ -142,10 +142,15 @@ async def _controles(session: AsyncSession) -> list[str]:
         if await _latch(session, "erreurs_telemetrie", etat_err):
             if graves:
                 e = graves[0]
-                alertes.append(
-                    f"⚠️ Télémétrie — {e['libelle']}. {e['conseil']}"
-                    + (f" ({len(graves)} au total sur 24 h)" if len(graves) > 1 else "")
-                )
+                message = f"⚠️ Télémétrie — {e['libelle']}. {e['conseil']}"
+                if len(graves) > 1:
+                    message += f" ({len(graves)} au total sur 24 h)"
+                # Une signature non répertoriée ne dit rien par son libellé :
+                # on joint le texte brut, seul moyen de la classer sans aller
+                # fouiller le serveur.
+                if "non répertoriée" in e["libelle"]:
+                    message += f"\n\n{e['brut'][:200]}"
+                alertes.append(message)
             elif trop:
                 alertes.append(
                     f"⚠️ Télémétrie — {len(benignes)} erreurs de connexion en 24 h, "
