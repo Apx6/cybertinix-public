@@ -101,6 +101,18 @@ nav button[aria-current="true"]{color:var(--accent);border-top-color:var(--accen
 .carte .vide{display:grid;place-items:center;height:100%;color:var(--muted);font-size:.85rem;padding:1rem;text-align:center}
 
 h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:1.5rem 0 .6rem;font-weight:600}
+
+/* Rubrique repliable : le résumé reprend exactement l'allure d'un `h2`, pour
+   qu'une section pliée ne paraisse pas d'une autre nature que les autres. */
+details > summary{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--muted);margin:1.5rem 0 .6rem;font-weight:600;cursor:pointer;
+  list-style:none;display:flex;align-items:center;gap:.4rem}
+details > summary::-webkit-details-marker{display:none}
+details > summary::before{content:"›";display:inline-block;font-size:1.1em;
+  line-height:1;transition:transform .18s;transform:rotate(0deg)}
+details[open] > summary::before{transform:rotate(90deg)}
+details > summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){details > summary::before{transition:none}}
 h2:first-of-type{margin-top:.2rem}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .row{display:flex;align-items:center;gap:.75rem;padding:.7rem .9rem;border-bottom:1px solid var(--line)}
@@ -187,11 +199,16 @@ footer{color:var(--muted);font-size:.75rem;text-align:center;padding:1.5rem 0 0;
     <div class="carte" id="carte"><div class="vide">Aucune position connue.</div></div>
     <div class="sous" id="carte-rue" style="color:var(--ink-soft);font-size:.85rem;padding:.5rem .1rem"></div>
 
-    <h2>Déplacements</h2>
-    <div class="card" id="trajets"></div>
-
     <h2>Commandes</h2>
     <div id="actions-vehicule"></div>
+
+    <!-- Repliée par défaut et placée en fin d'onglet : c'est une consultation
+         occasionnelle, pas une information d'état. Elle ne doit pas s'interposer
+         entre la position et les commandes. -->
+    <details id="bloc-trajets">
+      <summary>Déplacements</summary>
+      <div class="card" id="trajets"></div>
+    </details>
 
     <footer>Les valeurs viennent de la télémétrie : elles datent du dernier changement, pas de l'instant présent.</footer>
   </section>
@@ -615,6 +632,17 @@ async function chargerJournal() {
       `${sous} · <code style="font-size:.7rem;opacity:.7">${e.nom}</code>${e.note ? `<br>${e.note}` : ''}${e.connue ? '' : ' · <em>non documentée</em>'}`);
   }).join('');
 }
+
+// L'ouverture se retient d'une visite à l'autre : celui qui consulte souvent
+// ses trajets ne rouvre pas la rubrique à chaque fois.
+(() => {
+  const bloc = $('#bloc-trajets');
+  if (!bloc) return;
+  try { bloc.open = localStorage.getItem('trajets-ouvert') === '1'; } catch {}
+  bloc.addEventListener('toggle', () => {
+    try { localStorage.setItem('trajets-ouvert', bloc.open ? '1' : '0'); } catch {}
+  });
+})();
 
 async function chargerTrajets() {
   const trajets = await api('GET', '/trips?limit=30');
